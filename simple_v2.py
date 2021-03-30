@@ -7,11 +7,14 @@ LR = LinearRegression()
 
 
 class Synapse:
-    def __init__(self, input_n, output_n, weight=0.5):
+    def __init__(self, input_n, output_n, weight=0.5, distance=1):
         self.input_n = input_n
         self.output_n = output_n
         self.weight = weight
         self.is_signal = 0
+
+    def tick_signal(self):
+        pass
 
     def check_signal(self):
         if self.is_signal == 0:
@@ -30,10 +33,12 @@ class Neuron:
         self.lr = LR
         self.input_synapses = []
         self.output_synapses = []
-        self.input_buffer = []
-        self.output_buffer = []
-        self.true_output_buffer = []
-        self.weight_buffer = []
+        # буферы для обучения
+        self.input_buffer = [[] for _ in range(10)]
+        self.output_buffer = [0 for _ in range(10)]
+        self.true_output_buffer = [0 for _ in range(10)]
+        self.weight_buffer = [[] for _ in range(10)]
+        ###
         self.accumulator = 0
 
     def get_weights(self):
@@ -49,17 +54,35 @@ class Neuron:
         self.output_synapses.append(synapse)
 
     def sum_signals(self):
+        current_input = []
+        current_weights = []
         for i_s in self.input_synapses:
+            current_weights.append(i_s.weight)
             if i_s.check_signal():
                 self.accumulator += i_s.weight
+                current_input.append(1)
+            else:
+                current_input.append(0)
+        self.input_buffer.append(current_input)
+        self.input_buffer.pop(0)
+        self.weight_buffer.append(current_weights)
+        self.weight_buffer.pop(0)
 
     def generate_output(self):
         if self.accumulator >= 1:
             for o_s in self.output_synapses:
                 o_s.activate()
             self.accumulator = 0
+            self.output_buffer.append(1)
+            self.output_buffer.pop(0)
             return self.number
+        self.output_buffer.append(0)
+        self.output_buffer.pop(0)
         return False
+
+    def set_true_output(self, true_output):
+        self.true_output_buffer.append(true_output)
+        self.true_output_buffer.pop(0)
 
 
 class Net:
@@ -91,10 +114,17 @@ class Net:
             p = n.generate_output()
             if p == 2:
                 print('hop')
+        # set_true_output
 
     def probe(self, number):
         n = self.get_neuron(number)
         n.accumulator = 1
+
+    def fit(self, X, y):
+        if len(X) != len(y):
+            raise
+        for cur_x, cur_y in zip(X, y):
+            pass
 
 
 net = Net(5)
