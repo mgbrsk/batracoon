@@ -83,6 +83,15 @@ class Neuron:
     def set_true_output(self, true_output):
         self.true_output_buffer.append(true_output)
         self.true_output_buffer.pop(0)
+        
+    # TODO: check this implementation
+    def update_buffer(self, buffer, value):
+        buffer.append(value)
+        buffer.pop(0)
+        
+    def learning(self, reaction):
+        # -1 or 1 input
+        pass
 
 
 class Net:
@@ -108,23 +117,42 @@ class Net:
         output_neuron.add_output_synapse(s)
 
     def tick(self):
+        out_signal = False
         for n in self.neurons:
             n.sum_signals()
         for n in self.neurons:
             p = n.generate_output()
             if p == 2:
+                out_signal = True
                 print('hop')
+        return out_sinal
         # set_true_output
 
     def probe(self, number):
         n = self.get_neuron(number)
         n.accumulator = 1
 
+    def massive_probe(self, array):
+        for i in range(array):
+            if array[i] != 0:
+                self.probe(i)
+        
+    def check_right(self, y_true, y_pred):
+        if y_true == y_pred:
+            return 1
+        else:
+            return -1
+        
     def fit(self, X, y):
         if len(X) != len(y):
             raise
         for cur_x, cur_y in zip(X, y):
-            pass
+            self.massive_probe(cur_x)
+            res = self.tick()
+            checked_out = self.check_right(cur_y, int(res))
+            for n in self.neurons:
+                n.learning(checked_out)
+            
 
 
 net = Net(5)
