@@ -3,7 +3,7 @@
 from sklearn.linear_model import LinearRegression
 
 
-LR = LinearRegression()
+LR = LinearRegression(fit_intercept=False)
 
 
 class Synapse:
@@ -91,7 +91,17 @@ class Neuron:
         
     def learning(self, reaction):
         # -1 or 1 input
-        pass
+        if reaction == 1:
+            last_output = self.output_buffer[-1]
+        elif reaction == -1:
+            # меняем 1 на 0 и 0 на 1
+            last_output = self.output_buffer[-1] * (-1) + 1
+        self.set_true_output(self, last_output)
+        
+        lr.fit(self.input_buffer, self.true_output_buffer)
+        need_weights = list(lr.coef_)
+        for i, s in enumerate(self.input_synapses):
+            s.weight = need_weights[i]
 
 
 class Net:
