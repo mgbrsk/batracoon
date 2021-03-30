@@ -89,6 +89,7 @@ class Neuron:
             self.output_buffer.append(1)  # записываем выход данного нейрона в буфер
             self.output_buffer.pop(0)
             return self.number  # если активировался нейрон, то возвращаем его номер
+        self.accumulator = 0
         self.output_buffer.append(0)  # так записываем в буферы если не преодолели порог
         self.output_buffer.pop(0)
         return False
@@ -114,6 +115,8 @@ class Neuron:
         self.set_true_output(last_output)  # ну и сама запись в буфер
 
         if self.costil >= BUFFER_SIZE:  # если наши буферы заполнились
+            # print(self.number)
+            # print(self.input_buffer, self.true_output_buffer)
             self.lr.fit(self.input_buffer, self.true_output_buffer)  # обучаем регрессор на входных и правильных выходных данных
             need_weights = list(self.lr.coef_)  # вытаскиваем полученные коэффициенты
             for i, s in enumerate(self.input_synapses):  # идем по всем входным синапсам
@@ -196,7 +199,8 @@ class Net:
             res = self.tick()  # сеть тикает и генерирует ответ - был или не было сигнала на этом тике
             checked_out = self.check_right(cur_y, int(res))  # проверка правильности ответа
             for n in self.neurons:
-                n.learning(checked_out)  # передаем реакцию сети во все нейроны, где они обучаются глядя на нее
+                if n.number != 0 and n.number != 1:
+                    n.learning(checked_out)  # передаем реакцию сети во все нейроны, где они обучаются глядя на нее
         self.fitted = True  # всё, обучили
                 
     def predict(self, X):
@@ -227,9 +231,9 @@ class Net:
 import random
 
 
-BUFFER_SIZE = 200  # длина буферов в тиках
+BUFFER_SIZE = 180  # длина буферов в тиках
 EPOCHS = 750  # количество импульсов
-SKVAZHNOST = 60  # продолжительность импульса в тиках
+SKVAZHNOST = 30  # продолжительность импульса в тиках
 
 
 train = [{'X': [0, 0], 'y': 0},
@@ -254,37 +258,45 @@ def testtest():
 
     net = Net(6)
 
-    net.add_synapse(0, 1, weight=random_weight())
+    # net.add_synapse(0, 1, weight=random_weight())
+    # net.add_synapse(0, 2, weight=random_weight())
+    # net.add_synapse(0, 3, weight=random_weight())
+    # net.add_synapse(0, 4, weight=random_weight())
+    # net.add_synapse(0, 5, weight=random_weight())
+    # net.add_synapse(1, 2, weight=random_weight())
+    # net.add_synapse(1, 3, weight=random_weight())
+    # net.add_synapse(1, 4, weight=random_weight())
+    # net.add_synapse(1, 5, weight=random_weight())
+    # net.add_synapse(2, 3, weight=random_weight())
+    # net.add_synapse(2, 4, weight=random_weight())
+    # net.add_synapse(2, 5, weight=random_weight())
+    # net.add_synapse(3, 4, weight=random_weight())
+    # net.add_synapse(3, 5, weight=random_weight())
+    # net.add_synapse(4, 5, weight=random_weight())
+    #
+    # net.add_synapse(1, 0, weight=random_weight())
+    # net.add_synapse(2, 0, weight=random_weight())
+    # net.add_synapse(3, 0, weight=random_weight())
+    # net.add_synapse(4, 0, weight=random_weight())
+    # net.add_synapse(5, 0, weight=random_weight())
+    # net.add_synapse(2, 1, weight=random_weight())
+    # net.add_synapse(3, 1, weight=random_weight())
+    # net.add_synapse(4, 1, weight=random_weight())
+    # net.add_synapse(5, 1, weight=random_weight())
+    # net.add_synapse(3, 2, weight=random_weight())
+    # net.add_synapse(4, 2, weight=random_weight())
+    # net.add_synapse(5, 2, weight=random_weight())
+    # net.add_synapse(4, 3, weight=random_weight())
+    # net.add_synapse(5, 3, weight=random_weight())
+    # net.add_synapse(5, 4, weight=random_weight())
     net.add_synapse(0, 2, weight=random_weight())
-    net.add_synapse(0, 3, weight=random_weight())
-    net.add_synapse(0, 4, weight=random_weight())
-    net.add_synapse(0, 5, weight=random_weight())
-    net.add_synapse(1, 2, weight=random_weight())
     net.add_synapse(1, 3, weight=random_weight())
-    net.add_synapse(1, 4, weight=random_weight())
-    net.add_synapse(1, 5, weight=random_weight())
-    net.add_synapse(2, 3, weight=random_weight())
-    net.add_synapse(2, 4, weight=random_weight())
     net.add_synapse(2, 5, weight=random_weight())
-    net.add_synapse(3, 4, weight=random_weight())
     net.add_synapse(3, 5, weight=random_weight())
-    net.add_synapse(4, 5, weight=random_weight())
-
-    net.add_synapse(1, 0, weight=random_weight())
-    net.add_synapse(2, 0, weight=random_weight())
-    net.add_synapse(3, 0, weight=random_weight())
-    net.add_synapse(4, 0, weight=random_weight())
-    net.add_synapse(5, 0, weight=random_weight())
-    net.add_synapse(2, 1, weight=random_weight())
-    net.add_synapse(3, 1, weight=random_weight())
-    net.add_synapse(4, 1, weight=random_weight())
-    net.add_synapse(5, 1, weight=random_weight())
-    net.add_synapse(3, 2, weight=random_weight())
-    net.add_synapse(4, 2, weight=random_weight())
-    net.add_synapse(5, 2, weight=random_weight())
-    net.add_synapse(4, 3, weight=random_weight())
-    net.add_synapse(5, 3, weight=random_weight())
     net.add_synapse(5, 4, weight=random_weight())
+    net.add_synapse(2, 4, weight=random_weight())
+    net.add_synapse(3, 4, weight=random_weight())
+
 
     net.fit(train_X, train_y)
 
