@@ -82,13 +82,14 @@ class Neuron:
 
     # метод проверки активации нейронов и запускания сигнала в выходные синапсы
     def generate_output(self):
-        if self.accumulator >= 1:  # если преодолели порог
+        if (self.accumulator >= 1) or (random.random() <= CHANCE_ACTIVATE):  # если преодолели порог
             for o_s in self.output_synapses:  # идем по всем выходным синапсам
                 o_s.activate()  # и активируем их
             self.accumulator = 0  # обнуляем аккумулятор
             self.output_buffer.append(1)  # записываем выход данного нейрона в буфер
             self.output_buffer.pop(0)
             return self.number  # если активировался нейрон, то возвращаем его номер
+        self.accumulator = 0
         self.output_buffer.append(0)  # так записываем в буферы если не преодолели порог
         self.output_buffer.pop(0)
         return False
@@ -114,6 +115,8 @@ class Neuron:
         self.set_true_output(last_output)  # ну и сама запись в буфер
 
         if self.costil >= BUFFER_SIZE:  # если наши буферы заполнились
+            # print(self.number)
+            # print(self.input_buffer, self.true_output_buffer)
             self.lr.fit(self.input_buffer, self.true_output_buffer)  # обучаем регрессор на входных и правильных выходных данных
             need_weights = list(self.lr.coef_)  # вытаскиваем полученные коэффициенты
             for i, s in enumerate(self.input_synapses):  # идем по всем входным синапсам
@@ -196,13 +199,14 @@ class Net:
             res = self.tick()  # сеть тикает и генерирует ответ - был или не было сигнала на этом тике
             checked_out = self.check_right(cur_y, int(res))  # проверка правильности ответа
             for n in self.neurons:
-                n.learning(checked_out)  # передаем реакцию сети во все нейроны, где они обучаются глядя на нее
+                if n.number != 0 and n.number != 1:
+                    n.learning(checked_out)  # передаем реакцию сети во все нейроны, где они обучаются глядя на нее
         self.fitted = True  # всё, обучили
                 
     def predict(self, X):
         # если еще не обучили то иди гуляй
-        if not self.fitted:
-            raise
+        # if not self.fitted:
+        #     raise
         result = []
         for cur_x in X:  # идем по входным данным
             self.massive_probe(cur_x)  # тут все аналогично как в обучении, только без вызова обучения нейронов
@@ -227,9 +231,10 @@ class Net:
 import random
 
 
-BUFFER_SIZE = 200  # длина буферов в тиках
+BUFFER_SIZE = 180  # длина буферов в тиках
 EPOCHS = 750  # количество импульсов
-SKVAZHNOST = 60  # продолжительность импульса в тиках
+SKVAZHNOST = 30  # продолжительность импульса в тиках
+CHANCE_ACTIVATE = 0.3
 
 
 train = [{'X': [0, 0], 'y': 0},
@@ -246,54 +251,65 @@ for _ in range(EPOCHS):
         train_y.append(train[j]['y'])
 
 
+
+test_X = [[0, 0], [0, 1], [1, 0], [1, 1]]
+test_X = test_X * SKVAZHNOST
+test_X.sort()
+
+y_true = list(map(lambda x: sum(x) == 1, test_X))
+
+
+
 def random_weight():
     return random.random() * 2 - 1
 
 
 def testtest():
 
-    net = Net(6)
+    net = Net(8)
 
-    net.add_synapse(0, 1, weight=random_weight())
+    # net.add_synapse(0, 1, weight=random_weight())
+    # net.add_synapse(0, 2, weight=random_weight())
+    # net.add_synapse(0, 3, weight=random_weight())
+    # net.add_synapse(0, 4, weight=random_weight())
+    # net.add_synapse(0, 5, weight=random_weight())
+    # net.add_synapse(1, 2, weight=random_weight())
+    # net.add_synapse(1, 3, weight=random_weight())
+    # net.add_synapse(1, 4, weight=random_weight())
+    # net.add_synapse(1, 5, weight=random_weight())
+    # net.add_synapse(2, 3, weight=random_weight())
+    # net.add_synapse(2, 4, weight=random_weight())
+    # net.add_synapse(2, 5, weight=random_weight())
+    # net.add_synapse(3, 4, weight=random_weight())
+    # net.add_synapse(3, 5, weight=random_weight())
+    # net.add_synapse(4, 5, weight=random_weight())
+    #
+    # net.add_synapse(1, 0, weight=random_weight())
+    # net.add_synapse(2, 0, weight=random_weight())
+    # net.add_synapse(3, 0, weight=random_weight())
+    # net.add_synapse(4, 0, weight=random_weight())
+    # net.add_synapse(5, 0, weight=random_weight())
+    # net.add_synapse(2, 1, weight=random_weight())
+    # net.add_synapse(3, 1, weight=random_weight())
+    # net.add_synapse(4, 1, weight=random_weight())
+    # net.add_synapse(5, 1, weight=random_weight())
+    # net.add_synapse(3, 2, weight=random_weight())
+    # net.add_synapse(4, 2, weight=random_weight())
+    # net.add_synapse(5, 2, weight=random_weight())
+    # net.add_synapse(4, 3, weight=random_weight())
+    # net.add_synapse(5, 3, weight=random_weight())
+    # net.add_synapse(5, 4, weight=random_weight())
     net.add_synapse(0, 2, weight=random_weight())
-    net.add_synapse(0, 3, weight=random_weight())
-    net.add_synapse(0, 4, weight=random_weight())
-    net.add_synapse(0, 5, weight=random_weight())
-    net.add_synapse(1, 2, weight=random_weight())
-    net.add_synapse(1, 3, weight=random_weight())
-    net.add_synapse(1, 4, weight=random_weight())
     net.add_synapse(1, 5, weight=random_weight())
     net.add_synapse(2, 3, weight=random_weight())
-    net.add_synapse(2, 4, weight=random_weight())
-    net.add_synapse(2, 5, weight=random_weight())
-    net.add_synapse(3, 4, weight=random_weight())
-    net.add_synapse(3, 5, weight=random_weight())
-    net.add_synapse(4, 5, weight=random_weight())
-
-    net.add_synapse(1, 0, weight=random_weight())
-    net.add_synapse(2, 0, weight=random_weight())
-    net.add_synapse(3, 0, weight=random_weight())
-    net.add_synapse(4, 0, weight=random_weight())
-    net.add_synapse(5, 0, weight=random_weight())
-    net.add_synapse(2, 1, weight=random_weight())
-    net.add_synapse(3, 1, weight=random_weight())
-    net.add_synapse(4, 1, weight=random_weight())
-    net.add_synapse(5, 1, weight=random_weight())
-    net.add_synapse(3, 2, weight=random_weight())
-    net.add_synapse(4, 2, weight=random_weight())
-    net.add_synapse(5, 2, weight=random_weight())
-    net.add_synapse(4, 3, weight=random_weight())
     net.add_synapse(5, 3, weight=random_weight())
-    net.add_synapse(5, 4, weight=random_weight())
+    net.add_synapse(2, 6, weight=random_weight())
+    net.add_synapse(5, 7, weight=random_weight())
+    net.add_synapse(3, 4, weight=random_weight())
+    net.add_synapse(6, 4, weight=random_weight())
+    net.add_synapse(7, 4, weight=random_weight())
 
     net.fit(train_X, train_y)
-
-    test_X = [[0, 0], [0, 1], [1, 0], [1, 1]]
-    test_X = test_X * SKVAZHNOST
-    test_X.sort()
-
-    y_true = list(map(lambda x: sum(x) == 1, test_X))
-
     y_pred = net.predict(test_X)
 
     counter_good = 0
@@ -311,3 +327,27 @@ def testtest():
 
 for _ in range(10):
     testtest()
+
+def ideal_net():
+    net = Net(8)
+
+    net.add_synapse(0, 2, weight=1.0)
+    net.add_synapse(1, 5, weight=1.0)
+    net.add_synapse(2, 3, weight=0.5)
+    net.add_synapse(5, 3, weight=0.5)
+    net.add_synapse(2, 6, weight=1.0)
+    net.add_synapse(5, 7, weight=1.0)
+    net.add_synapse(3, 4, weight=-2.0)
+    net.add_synapse(6, 4, weight=1.0)
+    net.add_synapse(7, 4, weight=1.0)
+
+    y_pred = net.predict(test_X)
+
+    counter_good = 0
+    counter_all = len(y_true)
+    for i, j, k in zip(test_X, y_pred, y_true):
+        if j == k:
+            counter_good += 1
+    print(f'{counter_good}/{counter_all}')
+
+# ideal_net()
