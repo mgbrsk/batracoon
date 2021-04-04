@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+from collections import defaultdict, Counter
+import random
+from functools import reduce
+
+
+BUFFER_LENGTH = 50
+
 
 class Synapse:
     global_number = 0
@@ -11,14 +18,15 @@ class Synapse:
         if genome:
             self.genome = genome
         else:
-            self.genome = {'cd': {}, 'dw': {}}
+            self.genome = {'cd': {'input': {}, 'output': {}}, 'dw': {'input': {}, 'output': {}}}
         self.is_signal = False
         self.weight = weight  # вес
         self.input_vars = {}
         self.output_vars = {}
         self.is_real = False
-        self.cd = 0
+        self.cd = 0.5
         self.dw = 0
+        self.history = [0 for _ in range(BUFFER_LENGTH)]
 
     # проверка есть ли сигнал в синапсе и сразу зануляем
     def check_signal(self):
@@ -33,23 +41,64 @@ class Synapse:
         if self.is_real:
             self.is_signal = True
 
+    def get_division(self, x, y):
+        try:
+            return x / y
+        except ZeroDivisionError:
+            return 0
+
+    def preprocess_vars(self):
+        first_history = self.input_vars[1]
+        second_history = self.output_vars[1]
+        counter = 0
+        for i, j in zip(first_history, second_history):
+            if (i == 1) and (i == j):
+                counter += 1
+        self.input_vars[1] = counter
+        self.output_vars[1] = counter
+
+        self.input_vars[45] = self.get_division(self.input_vars[0], self.input_vars[1])
+        self.input_vars[46] = self.get_division(self.input_vars[0], self.input_vars[14])
+        self.input_vars[47] = self.get_division(self.input_vars[0], self.input_vars[15])
+
+        self.output_vars[45] = self.get_division(self.output_vars[0], self.output_vars[1])
+        self.output_vars[46] = self.get_division(self.output_vars[0], self.output_vars[14])
+        self.output_vars[47] = self.get_division(self.output_vars[0], self.output_vars[15])
+
+        self.input_vars[48] = self.output_vars[48] = self.history.count(1)
+        self.input_vars[49] = self.output_vars[49] = self.weight
+        for i in range(18):
+            self.input_vars[50 + i] = self.get_division(self.input_vars[48], self.input_vars[i + 1])
+            self.output_vars[50 + i] = self.get_division(self.output_vars[48], self.output_vars[i + 1])
+        for i in range(18):
+            self.input_vars[68 + i] = self.get_division(self.input_vars[49], self.input_vars[i + 1])
+            self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1])
+
     def get_vars(self):
         self.input_vars = self.input_neuron.get_params()
         self.output_vars = self.output_neuron.get_params()
+        self.preprocess_vars()
 
     def calculate_cddw(self):
         self.cd = 0
         self.dw = 0
-        for key, value in self.genome['cd'].items():
-            if key in list(self.input_vars.keys()):
-                self.cd += self.input_vars[key] * value
-            elif key in list(self.output_vars.keys()):
-                self.cd += self.output_vars[key] * value
-        for key, value in self.genome['dw'].items():
-            if key in list(self.input_vars.keys()):
-                self.dw += self.input_vars[key] * value
-            elif key in list(self.output_vars.keys()):
-                self.dw += self.output_vars[key] * value
+        '''
+        genome:
+        cd, input - [0, 1, 2, ..., 85], output - [0, 1, 2, ..., 85]
+        dw, input - [0, 1, 2, ..., 85], output - [0, 1, 2, ..., 85]
+        '''
+        for key, value in self.genome['cd']['input'].items():
+            # if key in list(self.input_vars.keys()):
+            self.cd += self.input_vars[key] * value
+        for key, value in self.genome['cd']['output'].items():
+            # if key in list(self.output_vars.keys()):
+            self.cd += self.output_vars[key] * value
+        for key, value in self.genome['dw']['input'].items():
+            # if key in list(self.input_vars.keys()):
+            self.dw += self.input_vars[key] * value
+        for key, value in self.genome['dw']['output'].items():
+            # if key in list(self.input_vars.keys()):
+            self.dw += self.output_vars[key] * value
 
         self.cd = self.cd if self.cd <= 1 else 1
         self.cd = self.cd if self.cd >= 0 else 0
@@ -70,7 +119,11 @@ class Synapse:
 
     def add_signals(self):
         if self.check_signal():
-            self.output_neuron.add_accumulator(self.weight)
+            self.history.append(1)
+            self.output_neuron.add_accumulator(self.weight, self.number)
+        else:
+            self.history.append(0)
+        self.history.pop(0)
 
     def check_input_signal(self):
         if not self.is_real:
@@ -80,41 +133,251 @@ class Synapse:
 
 
 class Neuron:
+    """
+    Какие параметры нейрона могут быть? Включаем фантазию:
+    -0 расстояние до выхода
+    -1 показатель как часто одновременно активируется этот нейрон и другой (можно передать историю активаций)
+    -2 количество входных синапсов
+    -3 количество выходных синапсов
+    -4 количество отрицательных входных синапсов
+    -5 количество положительных входных синапсов
+    -6 количество отрицательных выходных синапсов
+    -7 количество положительных выходных синапсов
+    -8 сумма весов входных синапсов
+    -9 сумма весов выходных синапсов
+    -10 сумма весов входных положительных синапсов
+    -11 сумма весов входных отрицательных синапсов
+    -12 сумма весов выходных положительных синапсов
+    -13 сумма весов выходных отрицательных синапсов
+    -14 количество спайков за последнее время
+    -15 количество входных импульсов за последнее время
+    -16 количество положительных входных импульсов за последнее время
+    -17 количество отрицательных входных импульсов за последнее время
+    -18 количество активаций самого активного входного синапса за последнее время
+    -19 отношение 2 и 3
+    -20 отношение 4 и 5
+    -21 отношение 6 и 7
+    -22 отношение 4 и 6
+    -23 отношение 5 и 7
+    -24 отношение 4 и 7
+    -25 отношение 5 и 6
+    -26 отношение 8 и 9
+    -27 отношение 4 и 8
+    -28 отношение 5 и 8
+    -29 отношение 6 и 9
+    -30 отношение 7 и 9
+    -31 отношение 10 и 11
+    -32 отношение 12 и 13
+    -33 отношение 10 и 13
+    -34 отношение 11 и 12
+    -35 отношение 14 и 2
+    -36 отношение 14 и 3
+    -37 отношение 14 и 8
+    -38 отношение 14 и 9
+    -39 отношение 14 и 15
+    -40 отношение 16 и 17
+    -41 отношение 16 и 14
+    -42 отношение 17 и 14
+    -43 отношение 18 и 14
+    -44 отношение 18 и 15
+    -45 отношение 0 и 1  - в синапсе
+    -46 отношение 0 и 14  - в синапсе
+    -47 отношение 0 и 15  - в синапсе
+
+    В самом синапсе:
+    -48(а) количество активаций за последнее время (последняя частота)
+    -49(б) вес синапса
+    -50..67 отношение а и (1-18)
+    -68..85 отношение б и (1-18)
+    """
     global_number = 0
 
-    def __init__(self):
+    def __init__(self, is_input=False, is_output=False):
         self.number = Neuron.global_number
         Neuron.global_number += 1
         self.accumulator = 0
+        self.p = defaultdict(int)
+        self.coordinate = random.random()
+        if is_input and (not is_output):
+            self.coordinate = 1
+        elif (not is_input) and is_output:
+            self.coordinate = 0
+        self.spike_history = [0 for _ in range(BUFFER_LENGTH)]
+        self.synapse_history = [[] for _ in range(BUFFER_LENGTH)]
+        self.input_synapses = []
+        self.output_synapses = []
+
+    def get_number_of_synapses(self, array, sign=None):
+        counter = 0
+        if not sign:
+            for synapse in array:
+                if synapse.is_real:
+                    counter += 1
+            return counter
+        else:
+            if sign == 'pos':
+                for synapse in array:
+                    if synapse.is_real and synapse.weight >= 0:
+                        counter += 1
+                return counter
+            elif sign == 'neg':
+                for synapse in array:
+                    if synapse.is_real and synapse.weight < 0:
+                        counter += 1
+                return counter
+
+    def get_sum_of_weights(self, array, sign=None):
+        counter = 0
+        if not sign:
+            for synapse in array:
+                if synapse.is_real:
+                    counter += synapse.weight
+            return counter
+        else:
+            if sign == 'pos':
+                for synapse in array:
+                    if synapse.is_real and synapse.weight >= 0:
+                        counter += synapse.weight
+                return counter
+            elif sign == 'neg':
+                for synapse in array:
+                    if synapse.is_real and synapse.weight < 0:
+                        counter += synapse.weight
+                return counter
+
+    def signed_synapses(self, sign='pos'):
+        res = []
+        if sign == 'pos':
+            for s in self.input_synapses:
+                if s.is_real and (s.weight >= 0):
+                    res.append(s.number)
+            return res
+        elif sign == 'neg':
+            for s in self.input_synapses:
+                if s.is_real and (s.weight < 0):
+                    res.append(s.number)
+            return res
+
+    def get_sign_sum_of_input_impulses(self, sign='pos'):
+        counter = 0
+        if sign == 'pos':
+            positive_synapse_numbers = self.signed_synapses(sign='pos')
+            for item in self.synapse_history:
+                for synapse in item:
+                    if synapse in positive_synapse_numbers:
+                        counter += 1
+            return counter
+        elif sign == 'neg':
+            negative_synapse_numbers = self.signed_synapses(sign='neg')
+            for item in self.synapse_history:
+                for synapse in item:
+                    if synapse in negative_synapse_numbers:
+                        counter += 1
+            return counter
+
+    def get_division(self, x, y):
+        try:
+            return self.p[x] / self.p[y]
+        except ZeroDivisionError:
+            return 0
+
+    def get_more_activated(self):
+        all_activations = reduce(lambda x, y: x.extend(y) or x, self.synapse_history, [])
+        try:
+            return Counter(all_activations).most_common(1)[0][1]
+        except:
+            return 0
 
     def get_params(self):
-        pass
+        self.p[0] = self.coordinate
+        self.p[1] = self.spike_history
+        self.p[2] = self.get_number_of_synapses(self.input_synapses)
+        self.p[3] = self.get_number_of_synapses(self.output_synapses)
+        self.p[4] = self.get_number_of_synapses(self.input_synapses, sign='neg')
+        self.p[5] = self.get_number_of_synapses(self.input_synapses, sign='pos')
+        self.p[6] = self.get_number_of_synapses(self.output_synapses, sign='neg')
+        self.p[7] = self.get_number_of_synapses(self.output_synapses, sign='pos')
+        self.p[8] = self.get_sum_of_weights(self.input_synapses)
+        self.p[9] = self.get_sum_of_weights(self.output_synapses)
+        self.p[10] = self.get_sum_of_weights(self.input_synapses, sign='pos')
+        self.p[11] = self.get_sum_of_weights(self.output_synapses, sign='neg')
+        self.p[12] = self.get_sum_of_weights(self.input_synapses, sign='pos')
+        self.p[13] = self.get_sum_of_weights(self.output_synapses, sign='neg')
+        self.p[14] = self.spike_history.count(1)
+        self.p[15] = reduce(lambda x, y: x + len(y), self.synapse_history, 0)
+        self.p[16] = self.get_sign_sum_of_input_impulses(sign='pos')
+        self.p[17] = self.get_sign_sum_of_input_impulses(sign='neg')
+        self.p[18] = self.get_more_activated()
+        self.p[19] = self.get_division(2, 3)
+        self.p[20] = self.get_division(4, 5)
+        self.p[21] = self.get_division(6, 7)
+        self.p[22] = self.get_division(4, 6)
+        self.p[23] = self.get_division(5, 7)
+        self.p[24] = self.get_division(4, 7)
+        self.p[25] = self.get_division(5, 6)
+        self.p[26] = self.get_division(8, 9)
+        self.p[27] = self.get_division(4, 8)
+        self.p[28] = self.get_division(5, 8)
+        self.p[29] = self.get_division(6, 9)
+        self.p[30] = self.get_division(7, 9)
+        self.p[31] = self.get_division(10, 11)
+        self.p[32] = self.get_division(12, 13)
+        self.p[33] = self.get_division(10, 13)
+        self.p[34] = self.get_division(11, 12)
+        self.p[35] = self.get_division(14, 2)
+        self.p[36] = self.get_division(14, 3)
+        self.p[37] = self.get_division(14, 8)
+        self.p[38] = self.get_division(14, 9)
+        self.p[39] = self.get_division(14, 15)
+        self.p[40] = self.get_division(16, 17)
+        self.p[41] = self.get_division(16, 14)
+        self.p[42] = self.get_division(17, 14)
+        self.p[43] = self.get_division(18, 14)
+        self.p[44] = self.get_division(18, 15)
+        # self.p[45] = self.get_division(0, 1)
+        # self.p[46] = self.get_division(0, 14)
+        # self.p[47] = self.get_division(0, 15)
 
-    def add_accumulator(self, value):
+        return self.p
+
+    def add_accumulator(self, value, synapse_number):
         self.accumulator += value
+        self.synapse_history[-1].append(synapse_number)
 
     def is_spiked(self):
+        is_spiked = 0
         if self.accumulator >= 1:
-            return True
-        else:
-            return False
+            is_spiked = 1
+        self.spike_history[-1] = is_spiked
+        return bool(is_spiked)
 
     def erase(self):
         self.accumulator = 0
+        self.spike_history.append(0)
+        self.spike_history.pop(0)
+        self.synapse_history.append([])
+        self.synapse_history.pop(0)
 
 
 class Net:
-    def __init__(self, n_neurons):
+    def __init__(self, n_neurons, genome=None):
         self.neurons = []
         self.synapses = []
-        for _ in range(n_neurons):
-            self.neurons.append(Neuron())
+        for i in range(n_neurons):
+            if i == 0 or i == 1:
+                self.neurons.append(Neuron(is_input=True))
+            elif i == 4:
+                self.neurons.append(Neuron(is_output=True))
+            else:
+                self.neurons.append(Neuron())
         for outer_neuron in self.neurons:
             for inner_neuron in self.neurons:
                 if outer_neuron.number == inner_neuron.number:
                     continue
-                synapse = Synapse(outer_neuron, inner_neuron)
+                synapse = Synapse(outer_neuron, inner_neuron, genome=genome)
                 self.synapses.append(synapse)
+                outer_neuron.output_synapses.append(synapse)
+                inner_neuron.input_synapses.append(synapse)
 
     # метод поиска нужного нейрона, возвращает экземпляр найденнного нейрона
     def get_neuron(self, num):
@@ -145,9 +408,27 @@ class Net:
             n.erase()
         for s in self.synapses:
             s.add_signals()
+        for s in self.synapses:
+            s.get_vars()
+            s.calculate_cddw()
+            s.check_existing()
+            s.move_weight()
+
+    def predict(self):
+        pass
 
 
-net = Net(5)
+test_genome = {
+    'cd': {
+        'input': {x: 2 * random.random() - 1 for x in range(86)},
+        'output': {x: 2 * random.random() - 1 for x in range(86)}
+    },
+    'dw': {
+        'input': {x: 2 * random.random() - 1 for x in range(86)},
+        'output': {x: 2 * random.random() - 1 for x in range(86)}
+    }
+}
+net = Net(5, genome=test_genome)
 
 
 def make_synapse_real(first, second, weight=0.5):
