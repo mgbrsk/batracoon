@@ -2,6 +2,38 @@
 from collections import defaultdict, Counter
 import random
 from functools import reduce
+from random import randint, choice
+
+
+def generate_dataset(signal_length: int, inputs_count: int):
+    """
+    made by Vasyan
+    Возвращает массивы входов вида [(x1,..., xn)] * signal_length
+    и выходов [y] * signal_length.
+    """
+    io_list = []
+
+    for el in range(2 ** inputs_count):
+        # получаем бинарное представление элемента
+        el_binary = bin(el)[2:]
+        # добавляем столько незначащих нулей слева, чтобы длина была равна числу входных сигналов
+        if len(el_binary) != inputs_count:
+            el_binary = '0' * (inputs_count - len(el_binary)) + el_binary
+        # переводим строки в числа и записываем в tuple
+        el_binary = tuple(map(int, el_binary))
+        # случайным образом назначаем правильный ответ
+        io_list.append((el_binary, randint(0, 1)))
+
+    x_list, y_list = [], []
+
+    while io_list:
+        chosen_el = choice(io_list)
+        for _ in range(signal_length):
+            x_list.append(chosen_el[0])
+            y_list.append(chosen_el[1])
+        io_list.remove(chosen_el)
+
+    return x_list, y_list
 
 
 BUFFER_LENGTH = 50
@@ -54,25 +86,25 @@ class Synapse:
         for i, j in zip(first_history, second_history):
             if (i == 1) and (i == j):
                 counter += 1
-        self.input_vars[1] = counter
-        self.output_vars[1] = counter
+        self.input_vars[1] = counter / 100
+        self.output_vars[1] = counter / 100
 
-        self.input_vars[45] = self.get_division(self.input_vars[0], self.input_vars[1])
-        self.input_vars[46] = self.get_division(self.input_vars[0], self.input_vars[14])
-        self.input_vars[47] = self.get_division(self.input_vars[0], self.input_vars[15])
+        self.input_vars[45] = self.get_division(self.input_vars[0], self.input_vars[1]) / 100
+        self.input_vars[46] = self.get_division(self.input_vars[0], self.input_vars[14]) / 100
+        self.input_vars[47] = self.get_division(self.input_vars[0], self.input_vars[15]) / 100
 
-        self.output_vars[45] = self.get_division(self.output_vars[0], self.output_vars[1])
-        self.output_vars[46] = self.get_division(self.output_vars[0], self.output_vars[14])
-        self.output_vars[47] = self.get_division(self.output_vars[0], self.output_vars[15])
+        self.output_vars[45] = self.get_division(self.output_vars[0], self.output_vars[1]) / 100
+        self.output_vars[46] = self.get_division(self.output_vars[0], self.output_vars[14]) / 100
+        self.output_vars[47] = self.get_division(self.output_vars[0], self.output_vars[15]) / 100
 
-        self.input_vars[48] = self.output_vars[48] = self.history.count(1)
-        self.input_vars[49] = self.output_vars[49] = self.weight
+        self.input_vars[48] = self.output_vars[48] = self.history.count(1) / 100
+        self.input_vars[49] = self.output_vars[49] = self.weight / 100
         for i in range(18):
-            self.input_vars[50 + i] = self.get_division(self.input_vars[48], self.input_vars[i + 1])
-            self.output_vars[50 + i] = self.get_division(self.output_vars[48], self.output_vars[i + 1])
+            self.input_vars[50 + i] = self.get_division(self.input_vars[48], self.input_vars[i + 1]) / 100
+            self.output_vars[50 + i] = self.get_division(self.output_vars[48], self.output_vars[i + 1]) / 100
         for i in range(18):
-            self.input_vars[68 + i] = self.get_division(self.input_vars[49], self.input_vars[i + 1])
-            self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1])
+            self.input_vars[68 + i] = self.get_division(self.input_vars[49], self.input_vars[i + 1]) / 100
+            self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1]) / 100
 
     def get_vars(self):
         self.input_vars = self.input_neuron.get_params()
@@ -291,49 +323,49 @@ class Neuron:
     def get_params(self):
         self.p[0] = self.coordinate
         self.p[1] = self.spike_history
-        self.p[2] = self.get_number_of_synapses(self.input_synapses)
-        self.p[3] = self.get_number_of_synapses(self.output_synapses)
-        self.p[4] = self.get_number_of_synapses(self.input_synapses, sign='neg')
-        self.p[5] = self.get_number_of_synapses(self.input_synapses, sign='pos')
-        self.p[6] = self.get_number_of_synapses(self.output_synapses, sign='neg')
-        self.p[7] = self.get_number_of_synapses(self.output_synapses, sign='pos')
-        self.p[8] = self.get_sum_of_weights(self.input_synapses)
-        self.p[9] = self.get_sum_of_weights(self.output_synapses)
-        self.p[10] = self.get_sum_of_weights(self.input_synapses, sign='pos')
-        self.p[11] = self.get_sum_of_weights(self.output_synapses, sign='neg')
-        self.p[12] = self.get_sum_of_weights(self.input_synapses, sign='pos')
-        self.p[13] = self.get_sum_of_weights(self.output_synapses, sign='neg')
-        self.p[14] = self.spike_history.count(1)
-        self.p[15] = reduce(lambda x, y: x + len(y), self.synapse_history, 0)
-        self.p[16] = self.get_sign_sum_of_input_impulses(sign='pos')
-        self.p[17] = self.get_sign_sum_of_input_impulses(sign='neg')
-        self.p[18] = self.get_more_activated()
-        self.p[19] = self.get_division(2, 3)
-        self.p[20] = self.get_division(4, 5)
-        self.p[21] = self.get_division(6, 7)
-        self.p[22] = self.get_division(4, 6)
-        self.p[23] = self.get_division(5, 7)
-        self.p[24] = self.get_division(4, 7)
-        self.p[25] = self.get_division(5, 6)
-        self.p[26] = self.get_division(8, 9)
-        self.p[27] = self.get_division(4, 8)
-        self.p[28] = self.get_division(5, 8)
-        self.p[29] = self.get_division(6, 9)
-        self.p[30] = self.get_division(7, 9)
-        self.p[31] = self.get_division(10, 11)
-        self.p[32] = self.get_division(12, 13)
-        self.p[33] = self.get_division(10, 13)
-        self.p[34] = self.get_division(11, 12)
-        self.p[35] = self.get_division(14, 2)
-        self.p[36] = self.get_division(14, 3)
-        self.p[37] = self.get_division(14, 8)
-        self.p[38] = self.get_division(14, 9)
-        self.p[39] = self.get_division(14, 15)
-        self.p[40] = self.get_division(16, 17)
-        self.p[41] = self.get_division(16, 14)
-        self.p[42] = self.get_division(17, 14)
-        self.p[43] = self.get_division(18, 14)
-        self.p[44] = self.get_division(18, 15)
+        self.p[2] = self.get_number_of_synapses(self.input_synapses) / 100
+        self.p[3] = self.get_number_of_synapses(self.output_synapses) / 100
+        self.p[4] = self.get_number_of_synapses(self.input_synapses, sign='neg') / 100
+        self.p[5] = self.get_number_of_synapses(self.input_synapses, sign='pos') / 100
+        self.p[6] = self.get_number_of_synapses(self.output_synapses, sign='neg') / 100
+        self.p[7] = self.get_number_of_synapses(self.output_synapses, sign='pos') / 100
+        self.p[8] = self.get_sum_of_weights(self.input_synapses) / 100
+        self.p[9] = self.get_sum_of_weights(self.output_synapses) / 100
+        self.p[10] = self.get_sum_of_weights(self.input_synapses, sign='pos') / 100
+        self.p[11] = self.get_sum_of_weights(self.output_synapses, sign='neg') / 100
+        self.p[12] = self.get_sum_of_weights(self.input_synapses, sign='pos') / 100
+        self.p[13] = self.get_sum_of_weights(self.output_synapses, sign='neg') / 100
+        self.p[14] = self.spike_history.count(1) / 100
+        self.p[15] = reduce(lambda x, y: x + len(y), self.synapse_history, 0) / 100
+        self.p[16] = self.get_sign_sum_of_input_impulses(sign='pos') / 100
+        self.p[17] = self.get_sign_sum_of_input_impulses(sign='neg') / 100
+        self.p[18] = self.get_more_activated() / 100
+        self.p[19] = self.get_division(2, 3) / 100
+        self.p[20] = self.get_division(4, 5) / 100
+        self.p[21] = self.get_division(6, 7) / 100
+        self.p[22] = self.get_division(4, 6) / 100
+        self.p[23] = self.get_division(5, 7) / 100
+        self.p[24] = self.get_division(4, 7) / 100
+        self.p[25] = self.get_division(5, 6) / 100
+        self.p[26] = self.get_division(8, 9) / 100
+        self.p[27] = self.get_division(4, 8) / 100
+        self.p[28] = self.get_division(5, 8) / 100
+        self.p[29] = self.get_division(6, 9) / 100
+        self.p[30] = self.get_division(7, 9) / 100
+        self.p[31] = self.get_division(10, 11) / 100
+        self.p[32] = self.get_division(12, 13) / 100
+        self.p[33] = self.get_division(10, 13) / 100
+        self.p[34] = self.get_division(11, 12) / 100
+        self.p[35] = self.get_division(14, 2) / 100
+        self.p[36] = self.get_division(14, 3) / 100
+        self.p[37] = self.get_division(14, 8) / 100
+        self.p[38] = self.get_division(14, 9) / 100
+        self.p[39] = self.get_division(14, 15) / 100
+        self.p[40] = self.get_division(16, 17) / 100
+        self.p[41] = self.get_division(16, 14) / 100
+        self.p[42] = self.get_division(17, 14) / 100
+        self.p[43] = self.get_division(18, 14) / 100
+        self.p[44] = self.get_division(18, 15) / 100
         # self.p[45] = self.get_division(0, 1)
         # self.p[46] = self.get_division(0, 14)
         # self.p[47] = self.get_division(0, 15)
@@ -360,13 +392,18 @@ class Neuron:
 
 
 class Net:
-    def __init__(self, n_neurons, genome=None):
+    def __init__(self, n_neurons, genome=None, input_numbers=None, output_number=None):
         self.neurons = []
         self.synapses = []
+        if input_numbers is None:
+            input_numbers = [0, 1]
+        if output_number is None:
+            output_number = 4
+        self.output_number = output_number
         for i in range(n_neurons):
-            if i == 0 or i == 1:
+            if i in input_numbers:
                 self.neurons.append(Neuron(is_input=True))
-            elif i == 4:
+            elif i == output_number:
                 self.neurons.append(Neuron(is_output=True))
             else:
                 self.neurons.append(Neuron())
@@ -400,11 +437,13 @@ class Net:
                 self.probe(i)
 
     def tick(self):
+        out_signal = False
         for s in self.synapses:
             s.check_input_signal()
         for n in self.neurons:
-            if n.number == 4 and n.is_spiked():
-                print('hop')
+            if n.number == self.output_number and n.is_spiked():
+                out_signal = True
+                # print('hop')
             n.erase()
         for s in self.synapses:
             s.add_signals()
@@ -413,43 +452,73 @@ class Net:
             s.calculate_cddw()
             s.check_existing()
             s.move_weight()
+        return int(out_signal)
 
-    def predict(self):
+    def predict(self, X):
+        result = []
+        for cur_x in X:  # идем по входным данным
+            self.massive_probe(cur_x)  # тут все аналогично как в обучении, только без вызова обучения нейронов
+            res = self.tick()
+            result.append(res)
+        return result
+
+
+class Population:
+    def __init__(self):
         pass
 
+    def create_dataset(self):
+        pass
 
-test_genome = {
-    'cd': {
-        'input': {x: 2 * random.random() - 1 for x in range(86)},
-        'output': {x: 2 * random.random() - 1 for x in range(86)}
-    },
-    'dw': {
-        'input': {x: 2 * random.random() - 1 for x in range(86)},
-        'output': {x: 2 * random.random() - 1 for x in range(86)}
+    def mutation(self):
+        pass
+
+    def crossingover(self):
+        pass
+
+    def fit(self):
+        pass
+
+BUFFER_LENGTH = 10
+
+old_train_X, train_y = generate_dataset(2, 2)
+train_X = []
+for item in old_train_X:
+    train_X.append([1] + list(item))
+train_X = train_X * 20
+train_y = train_y * 20
+
+
+all_nets = []
+all_genomes = []
+results = []
+for i in range(10):
+    test_genome = {
+        'cd': {
+            'input': {x: 2 * random.random() - 1 for x in range(86)},
+            'output': {x: 2 * random.random() - 1 for x in range(86)}
+        },
+        'dw': {
+            'input': {x: 2 * random.random() - 1 for x in range(86)},
+            'output': {x: 2 * random.random() - 1 for x in range(86)}
+        }
     }
-}
-net = Net(5, genome=test_genome)
+    net = Net(10, genome=test_genome, input_numbers=[0, 1, 2])
+    all_nets.append(net)
+    all_genomes.append(test_genome)
+    Synapse.global_number = 0
+    Neuron.global_number = 0
 
-
-def make_synapse_real(first, second, weight=0.5):
-    for s in net.synapses:
-        if s.input_neuron.number == first and s.output_neuron.number == second:
-            s.is_real = True
-            s.weight = weight
-
-
-make_synapse_real(0, 2, weight=0.5)
-make_synapse_real(1, 2, weight=0.5)
-make_synapse_real(2, 4, weight=1)
-
-net.probe(0)
-net.probe(1)
-
-for _ in range(50):
-    net.tick()
-
-net.probe(0)
-net.probe(1)
-
-for _ in range(50):
-    net.tick()
+for net in all_nets:
+    predictions = net.predict(train_X)
+    counter_good = 0
+    counter_all = len(train_y)
+    # print(predictions)
+    # print(train_y)
+    for j, k in zip(predictions, train_y):
+        if j == k:
+            counter_good += 1
+    fitness_value = counter_good / counter_all * 0.5 + (
+                1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
+    results.append(fitness_value)
+    print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
