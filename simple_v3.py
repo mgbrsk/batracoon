@@ -3,6 +3,7 @@ from collections import defaultdict, Counter
 import random
 from functools import reduce
 from random import randint, choice
+import datetime
 
 
 def generate_dataset(signal_length: int, inputs_count: int):
@@ -107,8 +108,10 @@ class Synapse:
             self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1]) / 100
 
     def get_vars(self):
-        self.input_vars = self.input_neuron.get_params()
-        self.output_vars = self.output_neuron.get_params()
+        input_vars = self.input_neuron.get_params()
+        self.input_vars = input_vars.copy()
+        output_vars = self.output_neuron.get_params()
+        self.output_vars = output_vars.copy()
         self.preprocess_vars()
 
     def calculate_cddw(self):
@@ -216,6 +219,10 @@ class Neuron:
     -46 отношение 0 и 14  - в синапсе
     -47 отношение 0 и 15  - в синапсе
 
+    -86 расстояние до входа * на реакцию сети
+    -87 чистая реакция сети
+    -88..104 отношения 87 и (2-18)
+
     В самом синапсе:
     -48(а) количество активаций за последнее время (последняя частота)
     -49(б) вес синапса
@@ -321,6 +328,9 @@ class Neuron:
             return 0
 
     def get_params(self):
+        return self.p
+
+    def extract_params(self, is_right=0):
         self.p[0] = self.coordinate
         self.p[1] = self.spike_history
         self.p[2] = self.get_number_of_synapses(self.input_synapses) / 100
@@ -366,11 +376,31 @@ class Neuron:
         self.p[42] = self.get_division(17, 14) / 100
         self.p[43] = self.get_division(18, 14) / 100
         self.p[44] = self.get_division(18, 15) / 100
+
+        self.p[86] = is_right * self.coordinate / 100
+        self.p[87] = is_right
+        self.p[88] = self.get_division(2, 87) / 100
+        self.p[89] = self.get_division(3, 87) / 100
+        self.p[90] = self.get_division(4, 87) / 100
+        self.p[91] = self.get_division(5, 87) / 100
+        self.p[92] = self.get_division(6, 87) / 100
+        self.p[93] = self.get_division(7, 87) / 100
+        self.p[94] = self.get_division(8, 87) / 100
+        self.p[95] = self.get_division(9, 87) / 100
+        self.p[96] = self.get_division(10, 87) / 100
+        self.p[97] = self.get_division(11, 87) / 100
+        self.p[98] = self.get_division(12, 87) / 100
+        self.p[99] = self.get_division(13, 87) / 100
+        self.p[100] = self.get_division(14, 87) / 100
+        self.p[101] = self.get_division(15, 87) / 100
+        self.p[102] = self.get_division(16, 87) / 100
+        self.p[103] = self.get_division(17, 87) / 100
+        self.p[104] = self.get_division(18, 87) / 100
+
         # self.p[45] = self.get_division(0, 1)
         # self.p[46] = self.get_division(0, 14)
         # self.p[47] = self.get_division(0, 15)
-
-        return self.p
+        # return self.p
 
     def add_accumulator(self, value, synapse_number):
         self.accumulator += value
@@ -436,7 +466,7 @@ class Net:
             if array[i] != 0:
                 self.probe(i)
 
-    def tick(self):
+    def tick(self, reaction):
         out_signal = False
         for s in self.synapses:
             s.check_input_signal()
@@ -447,6 +477,8 @@ class Net:
             n.erase()
         for s in self.synapses:
             s.add_signals()
+        for n in self.neurons:
+            n.extract_params(is_right=reaction)
         for s in self.synapses:
             s.get_vars()
             s.calculate_cddw()
@@ -454,21 +486,45 @@ class Net:
             s.move_weight()
         return int(out_signal)
 
-    def predict(self, X):
+    def predict(self, X, y):
         result = []
-        for cur_x in X:  # идем по входным данным
+        for i in range(len(X)):
+            cur_x = X[i]
+            # cur_y = y[i]
+        # for cur_x, cur_y in zip(X, y):  # идем по входным данным
             self.massive_probe(cur_x)  # тут все аналогично как в обучении, только без вызова обучения нейронов
-            res = self.tick()
+            if i == 0:
+                res = self.tick(0)
+            else:
+                if result[-1] == y[i - 1]:
+                    res = self.tick(1)
+                else:
+                    res = self.tick(0)
             result.append(res)
         return result
 
 
 class Population:
-    def __init__(self):
-        pass
+    def __init__(self, population_size=100, neurons_number=10):
+        self.current_population = []
+        for i in range(population_size):
+            test_genome = {
+                'cd': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                },
+                'dw': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                }
+            }
+            net = Net(neurons_number, genome=test_genome, input_numbers=[0, 1, 2])
+            self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0})
+            Synapse.global_number = 0
+            Neuron.global_number = 0
 
     def create_dataset(self):
-        pass
+        return [], []
 
     def mutation(self):
         pass
@@ -476,49 +532,68 @@ class Population:
     def crossingover(self):
         pass
 
-    def fit(self):
+    def new_population(self):
         pass
+
+    def fit(self, accuracy=0.9):
+        current_accuracy = 0.0
+        while current_accuracy < accuracy:
+            train_X, train_y = self.create_dataset()
+            for net_dict in self.current_population:
+                net = net_dict['net']
+                predictions = net.predict(train_X, train_y)
+                counter_good = 0
+                counter_all = len(train_y)
+                for j, k in zip(predictions, train_y):
+                    if j == k:
+                        counter_good += 1
+                fitness_value = counter_good / counter_all * 0.5 + (
+                        1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
+                net_dict['f_value'] = fitness_value
+                # print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+
+            self.new_population()
 
 BUFFER_LENGTH = 10
 
-old_train_X, train_y = generate_dataset(2, 2)
-train_X = []
-for item in old_train_X:
-    train_X.append([1] + list(item))
-train_X = train_X * 20
-train_y = train_y * 20
-
-
-all_nets = []
-all_genomes = []
-results = []
-for i in range(10):
-    test_genome = {
-        'cd': {
-            'input': {x: 2 * random.random() - 1 for x in range(86)},
-            'output': {x: 2 * random.random() - 1 for x in range(86)}
-        },
-        'dw': {
-            'input': {x: 2 * random.random() - 1 for x in range(86)},
-            'output': {x: 2 * random.random() - 1 for x in range(86)}
-        }
-    }
-    net = Net(10, genome=test_genome, input_numbers=[0, 1, 2])
-    all_nets.append(net)
-    all_genomes.append(test_genome)
-    Synapse.global_number = 0
-    Neuron.global_number = 0
-
-for net in all_nets:
-    predictions = net.predict(train_X)
-    counter_good = 0
-    counter_all = len(train_y)
-    # print(predictions)
-    # print(train_y)
-    for j, k in zip(predictions, train_y):
-        if j == k:
-            counter_good += 1
-    fitness_value = counter_good / counter_all * 0.5 + (
-                1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
-    results.append(fitness_value)
-    print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+# old_train_X, train_y = generate_dataset(2, 2)
+# train_X = []
+# for item in old_train_X:
+#     train_X.append([1] + list(item))
+# train_X = train_X * 20
+# train_y = train_y * 20
+#
+#
+# all_nets = []
+# all_genomes = []
+# results = []
+# for i in range(10):
+#     test_genome = {
+#         'cd': {
+#             'input': {x: 2 * random.random() - 1 for x in range(105)},
+#             'output': {x: 2 * random.random() - 1 for x in range(105)}
+#         },
+#         'dw': {
+#             'input': {x: 2 * random.random() - 1 for x in range(105)},
+#             'output': {x: 2 * random.random() - 1 for x in range(105)}
+#         }
+#     }
+#     net = Net(10, genome=test_genome, input_numbers=[0, 1, 2])
+#     all_nets.append(net)
+#     all_genomes.append(test_genome)
+#     Synapse.global_number = 0
+#     Neuron.global_number = 0
+#
+# for net in all_nets:
+#     predictions = net.predict(train_X, train_y)
+#     counter_good = 0
+#     counter_all = len(train_y)
+#     # print(predictions)
+#     # print(train_y)
+#     for j, k in zip(predictions, train_y):
+#         if j == k:
+#             counter_good += 1
+#     fitness_value = counter_good / counter_all * 0.5 + (
+#                 1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
+#     results.append(fitness_value)
+#     print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
