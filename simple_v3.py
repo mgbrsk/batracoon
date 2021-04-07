@@ -29,9 +29,12 @@ def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number
         el_binary = tuple(map(int, el_binary))
         # случайным образом назначаем правильный ответ
         io_list.append({'x' : el_binary, 'y' : randint(0, 1)})
+        # принудительно ставим ответ в ноль, если на входах ноль
         io_list[-1]['y'] = 0 if sum(io_list[-1]['x']) == 0 else io_list[-1]['y']
+        # подсчитываем число нулей и единиц
         zero_count = zero_count + 1 if io_list[-1]['y'] == 0 else zero_count
         ones_count = ones_count + 1 if io_list[-1]['y'] == 1 else ones_count
+        # если перевалили за порог, меняем последнее значение на противоположное
         if zero_count > 2 ** (inputs_count - 1):
             io_list[-1]['y'] = 1
         elif ones_count > 2 ** (inputs_count - 1):
