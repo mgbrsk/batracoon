@@ -6,34 +6,47 @@ from random import randint, choice
 import datetime
 
 
-def generate_dataset(signal_length: int, inputs_count: int):
+def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
     """
     made by Vasyan
     Возвращает массивы входов вида [(x1,..., xn)] * signal_length
     и выходов [y] * signal_length.
+    Массивы повторяются в случайном порядке repeat_blocks_number раз.
+    Гарантируется, что при нулях на входе будет ноль на выходе;
+    кроме того, число нулей в таблице истинности будет равно числу единиц в ответах.
     """
+    
     io_list = []
-
+    zero_count, ones_count = 0, 0
     for el in range(2 ** inputs_count):
         # получаем бинарное представление элемента
         el_binary = bin(el)[2:]
-        # добавляем столько незначащих нулей слева, чтобы длина была равна числу входных сигналов
+        # добавляем столько незначащих нулей слева,
+        # чтобы длина была равна числу входных сигналов
         if len(el_binary) != inputs_count:
             el_binary = '0' * (inputs_count - len(el_binary)) + el_binary
         # переводим строки в числа и записываем в tuple
         el_binary = tuple(map(int, el_binary))
         # случайным образом назначаем правильный ответ
-        io_list.append((el_binary, randint(0, 1)))
+        io_list.append({'x' : el_binary, 'y' : randint(0, 1)})
+        # принудительно ставим ответ в ноль, если на входах ноль
+        io_list[-1]['y'] = 0 if sum(io_list[-1]['x']) == 0 else io_list[-1]['y']
+        # подсчитываем число нулей и единиц
+        zero_count = zero_count + 1 if io_list[-1]['y'] == 0 else zero_count
+        ones_count = ones_count + 1 if io_list[-1]['y'] == 1 else ones_count
+        # если перевалили за порог, меняем последнее значение на противоположное
+        if zero_count > 2 ** (inputs_count - 1):
+            io_list[-1]['y'] = 1
+        elif ones_count > 2 ** (inputs_count - 1):
+            io_list[-1]['y'] = 0
 
     x_list, y_list = [], []
-
-    while io_list:
-        chosen_el = choice(io_list)
-        for _ in range(signal_length):
-            x_list.append(chosen_el[0])
-            y_list.append(chosen_el[1])
-        io_list.remove(chosen_el)
-
+    for _ in range(repeat_blocks_number):
+        rand_index = randint(0, len(io_list)-1)
+        for uwu in range(signal_length):
+            x_list.append(io_list[rand_index]['x'])
+            y_list.append(io_list[rand_index]['y'])
+            
     return x_list, y_list
 
 
@@ -507,6 +520,9 @@ class Net:
 class Population:
     def __init__(self, population_size=100, neurons_number=10):
         self.current_population = []
+        self.new_genomes = []
+        self.neurons_number = neurons_number
+        self.input_numbers = [1, 2]
         for i in range(population_size):
             test_genome = {
                 'cd': {
@@ -518,28 +534,88 @@ class Population:
                     'output': {x: 2 * random.random() - 1 for x in range(105)}
                 }
             }
-            net = Net(neurons_number, genome=test_genome, input_numbers=[0, 1, 2])
+            net = Net(neurons_number, genome=test_genome, input_numbers=self.input_numbers)
             self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0})
             Synapse.global_number = 0
             Neuron.global_number = 0
 
     def create_dataset(self):
-        return [], []
+        X, y = generate_dataset(8, 2, 20)
+        return X, y
 
-    def mutation(self):
-        pass
+    def mutation(self, best_nets):
+        for item in best_nets:
+            for i in ['cd', 'dw']:
+                for j in ['input', 'output']:
+                    for k in range(len(item['cd']['input'].keys())):
+                        if random.random() < 0.1:
+                            item[i][j][k] += (2 * random.random() - 1) * 0.1
+        self.new_genomes += best_nets
 
-    def crossingover(self):
-        pass
+    def crossingover(self, best_nets):
+        new_genomes = []
+        for _ in range(30):
+            a = random.randint(0, 19)
+            b = random.randint(0, 19)
+            while a == b:
+                b = random.randint(0, 19)
+            parent_a = best_nets[a]
+            parent_b = best_nets[b]
+            child = {'cd': {'input': {}, 'output': {}},
+                     'dw': {'input': {}, 'output': {}}}
+            for i in ['cd', 'dw']:
+                for j in ['input', 'output']:
+                    for k in range(len(parent_a['cd']['input'].keys())):
+                        if random.random() > 0.5:
+                            child[i][j][k] = parent_a[i][j][k]
+                        else:
+                            child[i][j][k] = parent_b[i][j][k]
+            new_genomes.append(child)
+        self.new_genomes += new_genomes
+
+    def random_objects(self):
+        for _ in range(40):
+            test_genome = {
+                'cd': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                },
+                'dw': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                }
+            }
+            self.new_genomes.append(test_genome)
+
+    def create_nets_from_genomes(self):
+        print(len(self.new_genomes))
+        for genome in self.new_genomes:
+            net = Net(self.neurons_number, genome=genome, input_numbers=self.input_numbers)
+            self.current_population.append({'net': net, 'genome': genome, 'f_value': 0.0})
+            Synapse.global_number = 0
+            Neuron.global_number = 0
+        self.new_genomes = []
 
     def new_population(self):
-        pass
+        self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
+        accuracy = self.current_population[0]["f_value"]
+        print(f'Accuracies on current population: {self.current_population[0]["f_value"]}, {self.current_population[19]["f_value"]}')
+        best_nets = [x['genome'] for x in self.current_population[:20]]
+        self.current_population = []
+        self.crossingover(best_nets)
+        self.mutation(best_nets)
+        self.random_objects()
+        self.create_nets_from_genomes()
+        return accuracy
 
     def fit(self, accuracy=0.9):
         current_accuracy = 0.0
+        train_X, train_y = self.create_dataset()
+        for i, j in zip(train_X, train_y):
+            print(i, j)
+        print(train_y.count(1))
         while current_accuracy < accuracy:
-            train_X, train_y = self.create_dataset()
-            for net_dict in self.current_population:
+            for v, net_dict in enumerate(self.current_population):
                 net = net_dict['net']
                 predictions = net.predict(train_X, train_y)
                 counter_good = 0
@@ -550,9 +626,10 @@ class Population:
                 fitness_value = counter_good / counter_all * 0.5 + (
                         1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
                 net_dict['f_value'] = fitness_value
-                # print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+                if (v % 20) == 0:
+                    print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
 
-            self.new_population()
+            current_accuracy = self.new_population()
 
 BUFFER_LENGTH = 10
 
@@ -597,3 +674,6 @@ BUFFER_LENGTH = 10
 #                 1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
 #     results.append(fitness_value)
 #     print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+
+p = Population(population_size=40)
+p.fit(0.95)
