@@ -6,34 +6,44 @@ from random import randint, choice
 import datetime
 
 
-def generate_dataset(signal_length: int, inputs_count: int):
+def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
     """
     made by Vasyan
     Возвращает массивы входов вида [(x1,..., xn)] * signal_length
     и выходов [y] * signal_length.
+    Массивы повторяются в случайном порядке repeat_blocks_number раз.
+    Гарантируется, что при нулях на входе будет ноль на выходе;
+    кроме того, число нулей в таблице истинности будет равно числу единиц в ответах.
     """
+    
     io_list = []
-
+    zero_count, ones_count = 0, 0
     for el in range(2 ** inputs_count):
         # получаем бинарное представление элемента
         el_binary = bin(el)[2:]
-        # добавляем столько незначащих нулей слева, чтобы длина была равна числу входных сигналов
+        # добавляем столько незначащих нулей слева,
+        # чтобы длина была равна числу входных сигналов
         if len(el_binary) != inputs_count:
             el_binary = '0' * (inputs_count - len(el_binary)) + el_binary
         # переводим строки в числа и записываем в tuple
         el_binary = tuple(map(int, el_binary))
         # случайным образом назначаем правильный ответ
-        io_list.append((el_binary, randint(0, 1)))
+        io_list.append({'x' : el_binary, 'y' : randint(0, 1)})
+        io_list[-1]['y'] = 0 if sum(io_list[-1]['x']) == 0 else io_list[-1]['y']
+        zero_count = zero_count + 1 if io_list[-1]['y'] == 0 else zero_count
+        ones_count = ones_count + 1 if io_list[-1]['y'] == 1 else ones_count
+        if zero_count > 2 ** (inputs_count - 1):
+            io_list[-1]['y'] = 1
+        elif ones_count > 2 ** (inputs_count - 1):
+            io_list[-1]['y'] = 0
 
     x_list, y_list = [], []
-
-    while io_list:
-        chosen_el = choice(io_list)
-        for _ in range(signal_length):
-            x_list.append(chosen_el[0])
-            y_list.append(chosen_el[1])
-        io_list.remove(chosen_el)
-
+    for _ in range(repeat_blocks_number):
+        rand_index = randint(0, len(io_list)-1)
+        for uwu in range(signal_length):
+            x_list.append(io_list[rand_index]['x'])
+            y_list.append(io_list[rand_index]['y'])
+            
     return x_list, y_list
 
 
