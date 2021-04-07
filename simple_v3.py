@@ -520,6 +520,9 @@ class Net:
 class Population:
     def __init__(self, population_size=100, neurons_number=10):
         self.current_population = []
+        self.new_genomes = []
+        self.neurons_number = neurons_number
+        self.input_numbers = [1, 2]
         for i in range(population_size):
             test_genome = {
                 'cd': {
@@ -531,28 +534,88 @@ class Population:
                     'output': {x: 2 * random.random() - 1 for x in range(105)}
                 }
             }
-            net = Net(neurons_number, genome=test_genome, input_numbers=[0, 1, 2])
+            net = Net(neurons_number, genome=test_genome, input_numbers=self.input_numbers)
             self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0})
             Synapse.global_number = 0
             Neuron.global_number = 0
 
     def create_dataset(self):
-        return [], []
+        X, y = generate_dataset(8, 2, 20)
+        return X, y
 
-    def mutation(self):
-        pass
+    def mutation(self, best_nets):
+        for item in best_nets:
+            for i in ['cd', 'dw']:
+                for j in ['input', 'output']:
+                    for k in range(len(item['cd']['input'].keys())):
+                        if random.random() < 0.1:
+                            item[i][j][k] += (2 * random.random() - 1) * 0.1
+        self.new_genomes += best_nets
 
-    def crossingover(self):
-        pass
+    def crossingover(self, best_nets):
+        new_genomes = []
+        for _ in range(30):
+            a = random.randint(0, 19)
+            b = random.randint(0, 19)
+            while a == b:
+                b = random.randint(0, 19)
+            parent_a = best_nets[a]
+            parent_b = best_nets[b]
+            child = {'cd': {'input': {}, 'output': {}},
+                     'dw': {'input': {}, 'output': {}}}
+            for i in ['cd', 'dw']:
+                for j in ['input', 'output']:
+                    for k in range(len(parent_a['cd']['input'].keys())):
+                        if random.random() > 0.5:
+                            child[i][j][k] = parent_a[i][j][k]
+                        else:
+                            child[i][j][k] = parent_b[i][j][k]
+            new_genomes.append(child)
+        self.new_genomes += new_genomes
+
+    def random_objects(self):
+        for _ in range(40):
+            test_genome = {
+                'cd': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                },
+                'dw': {
+                    'input': {x: 2 * random.random() - 1 for x in range(105)},
+                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+                }
+            }
+            self.new_genomes.append(test_genome)
+
+    def create_nets_from_genomes(self):
+        print(len(self.new_genomes))
+        for genome in self.new_genomes:
+            net = Net(self.neurons_number, genome=genome, input_numbers=self.input_numbers)
+            self.current_population.append({'net': net, 'genome': genome, 'f_value': 0.0})
+            Synapse.global_number = 0
+            Neuron.global_number = 0
+        self.new_genomes = []
 
     def new_population(self):
-        pass
+        self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
+        accuracy = self.current_population[0]["f_value"]
+        print(f'Accuracies on current population: {self.current_population[0]["f_value"]}, {self.current_population[19]["f_value"]}')
+        best_nets = [x['genome'] for x in self.current_population[:20]]
+        self.current_population = []
+        self.crossingover(best_nets)
+        self.mutation(best_nets)
+        self.random_objects()
+        self.create_nets_from_genomes()
+        return accuracy
 
     def fit(self, accuracy=0.9):
         current_accuracy = 0.0
+        train_X, train_y = self.create_dataset()
+        for i, j in zip(train_X, train_y):
+            print(i, j)
+        print(train_y.count(1))
         while current_accuracy < accuracy:
-            train_X, train_y = self.create_dataset()
-            for net_dict in self.current_population:
+            for v, net_dict in enumerate(self.current_population):
                 net = net_dict['net']
                 predictions = net.predict(train_X, train_y)
                 counter_good = 0
@@ -563,9 +626,10 @@ class Population:
                 fitness_value = counter_good / counter_all * 0.5 + (
                         1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
                 net_dict['f_value'] = fitness_value
-                # print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+                if (v % 20) == 0:
+                    print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
 
-            self.new_population()
+            current_accuracy = self.new_population()
 
 BUFFER_LENGTH = 10
 
@@ -610,3 +674,6 @@ BUFFER_LENGTH = 10
 #                 1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
 #     results.append(fitness_value)
 #     print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
+
+p = Population(population_size=40)
+p.fit(0.95)
