@@ -152,8 +152,8 @@ class Synapse:
 
         self.cd = self.cd if self.cd <= 1 else 1
         self.cd = self.cd if self.cd >= 0 else 0
-        self.dw = self.cd if self.cd <= 1 else 1
-        self.dw = self.cd if self.cd >= -1 else -1
+        self.dw = self.dw if self.dw <= 1 else 1
+        self.dw = self.dw if self.dw >= -1 else -1
 
     def check_existing(self):
         if (not self.is_real) and self.cd >= 0.8:
