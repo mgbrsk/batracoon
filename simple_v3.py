@@ -543,8 +543,8 @@ class Population:
                 }
                 net = Net(neurons_number, genome=test_genome, input_numbers=self.input_numbers)
                 self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0, 'metrics': ''})
-            Synapse.global_number = 0
-            Neuron.global_number = 0
+                Synapse.global_number = 0
+                Neuron.global_number = 0
 
     def create_dataset(self):
         X, y = generate_dataset(16, 2, 40)
@@ -561,7 +561,7 @@ class Population:
 
     def crossingover(self, best_nets):
         new_genomes = []
-        for _ in range(30):
+        for _ in range(40):
             a = random.randint(0, 19)
             b = random.randint(0, 19)
             while a == b:
@@ -580,19 +580,38 @@ class Population:
             new_genomes.append(child)
         self.new_genomes += new_genomes
 
-    def random_objects(self):
+    def random_objects(self, all_nets):
+        # for _ in range(40):
+        #     test_genome = {
+        #         'cd': {
+        #             'input': {x: 2 * random.random() - 1 for x in range(105)},
+        #             'output': {x: 2 * random.random() - 1 for x in range(105)}
+        #         },
+        #         'dw': {
+        #             'input': {x: 2 * random.random() - 1 for x in range(105)},
+        #             'output': {x: 2 * random.random() - 1 for x in range(105)}
+        #         }
+        #     }
+        #     self.new_genomes.append(test_genome)
+        new_genomes = []
         for _ in range(40):
-            test_genome = {
-                'cd': {
-                    'input': {x: 2 * random.random() - 1 for x in range(105)},
-                    'output': {x: 2 * random.random() - 1 for x in range(105)}
-                },
-                'dw': {
-                    'input': {x: 2 * random.random() - 1 for x in range(105)},
-                    'output': {x: 2 * random.random() - 1 for x in range(105)}
-                }
-            }
-            self.new_genomes.append(test_genome)
+            a = random.randint(0, 99)
+            b = random.randint(0, 99)
+            while a == b:
+                b = random.randint(0, 99)
+            parent_a = all_nets[a]
+            parent_b = all_nets[b]
+            child = {'cd': {'input': {}, 'output': {}},
+                     'dw': {'input': {}, 'output': {}}}
+            for i in ['cd', 'dw']:
+                for j in ['input', 'output']:
+                    for k in range(len(parent_a['cd']['input'].keys())):
+                        if random.random() > 0.5:
+                            child[i][j][k] = parent_a[i][j][k]
+                        else:
+                            child[i][j][k] = parent_b[i][j][k]
+            new_genomes.append(child)
+        self.new_genomes += new_genomes
 
     def create_nets_from_genomes(self):
         print(len(self.new_genomes))
@@ -608,10 +627,11 @@ class Population:
         accuracy = self.current_population[0]["f_value"]
         print(f'Metrics on current population: {self.current_population[0]["metrics"]}, {self.current_population[19]["metrics"]}')
         best_nets = [x['genome'] for x in self.current_population[:20]]
+        all_nets = [x['genome'] for x in self.current_population]
         self.current_population = []
         self.crossingover(best_nets)
         self.mutation(best_nets)
-        self.random_objects()
+        self.random_objects(all_nets)
         self.create_nets_from_genomes()
         # сохраняем текущее состояние сети в файл
         with open('population.pickle', 'wb') as file:
@@ -700,5 +720,5 @@ BUFFER_LENGTH = 10
 #     results.append(fitness_value)
 #     print(f'f: {fitness_value}, c: {counter_good}/{counter_all}')
 
-p = Population(population_size=40)
+p = Population(population_size=100)
 p.fit(0.95)
