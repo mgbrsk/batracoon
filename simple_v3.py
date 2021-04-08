@@ -4,6 +4,7 @@ import random
 from functools import reduce
 from random import randint, choice
 import datetime
+import pickle
 
 
 def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
@@ -517,24 +518,31 @@ class Net:
 
 
 class Population:
-    def __init__(self, population_size=100, neurons_number=10):
-        self.current_population = []
-        self.new_genomes = []
-        self.neurons_number = neurons_number
-        self.input_numbers = [1, 2]
-        for i in range(population_size):
-            test_genome = {
-                'cd': {
-                    'input': {x: 2 * random.random() - 1 for x in range(105)},
-                    'output': {x: 2 * random.random() - 1 for x in range(105)}
-                },
-                'dw': {
-                    'input': {x: 2 * random.random() - 1 for x in range(105)},
-                    'output': {x: 2 * random.random() - 1 for x in range(105)}
+    def __init__(self, from_file=False, population_size=100, neurons_number=10):
+        if from_file:
+            with open('population.pickle', 'rb'):
+                self.current_population = pickle.load(file)
+            self.new_genomes = []
+            self.neurons_number = neurons_number
+            self.input_numbers = [1, 2]
+        else:
+            self.current_population = []
+            self.new_genomes = []
+            self.neurons_number = neurons_number
+            self.input_numbers = [1, 2]
+            for i in range(population_size):
+                test_genome = {
+                    'cd': {
+                        'input': {x: 2 * random.random() - 1 for x in range(105)},
+                        'output': {x: 2 * random.random() - 1 for x in range(105)}
+                    },
+                    'dw': {
+                        'input': {x: 2 * random.random() - 1 for x in range(105)},
+                        'output': {x: 2 * random.random() - 1 for x in range(105)}
+                    }
                 }
-            }
-            net = Net(neurons_number, genome=test_genome, input_numbers=self.input_numbers)
-            self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0, 'metrics': ''})
+                net = Net(neurons_number, genome=test_genome, input_numbers=self.input_numbers)
+                self.current_population.append({'net': net, 'genome': test_genome, 'f_value': 0.0, 'metrics': ''})
             Synapse.global_number = 0
             Neuron.global_number = 0
 
@@ -605,6 +613,9 @@ class Population:
         self.mutation(best_nets)
         self.random_objects()
         self.create_nets_from_genomes()
+        # сохраняем текущее состояние сети в файл
+        with open('population.pickle', 'wb') as file:
+            pickle.dump(self.current_population, file)
         return accuracy
 
     def guessed_number(self, a, b):
