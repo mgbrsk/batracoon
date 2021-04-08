@@ -590,7 +590,7 @@ class Population:
         print(len(self.new_genomes))
         for genome in self.new_genomes:
             net = Net(self.neurons_number, genome=genome, input_numbers=self.input_numbers)
-            self.current_population.append({'net': net, 'genome': genome, 'f_value': 0.0})
+            self.current_population.append({'net': net, 'genome': genome, 'f_value': 0.0, 'metrics': ''})
             Synapse.global_number = 0
             Neuron.global_number = 0
         self.new_genomes = []
