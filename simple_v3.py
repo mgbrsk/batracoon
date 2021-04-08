@@ -5,6 +5,7 @@ from functools import reduce
 from random import randint, choice
 import datetime
 import pickle
+from sklearn.metrics import f1_score
 
 
 def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
@@ -520,8 +521,8 @@ class Net:
 class Population:
     def __init__(self, from_file=False, population_size=100, neurons_number=10):
         if from_file:
-            with open('population.pickle', 'rb'):
-                self.current_population = pickle.load(file)
+            # with open('population.pickle', 'rb'):
+            #     self.current_population = pickle.load(file)
             self.new_genomes = []
             self.neurons_number = neurons_number
             self.input_numbers = [1, 2]
@@ -547,7 +548,7 @@ class Population:
                 Neuron.global_number = 0
 
     def create_dataset(self):
-        X, y = generate_dataset(16, 2, 40)
+        X, y = generate_dataset(16, 2, 80)
         return X, y
 
     def mutation(self, best_nets):
@@ -658,25 +659,29 @@ class Population:
         while current_accuracy < accuracy:
             count += 1
             print(f'Number of generation: {count}')
+            t_start = datetime.datetime.now()
             for v, net_dict in enumerate(self.current_population):
                 net = net_dict['net']
                 predictions = net.predict(train_X, train_y)
                 counter_good = 0
-                counter_all = len(train_y)
-                for j, k in zip(predictions, train_y):
+                test_number = 16 * 20
+                counter_all = len(train_y[test_number:])
+                for j, k in zip(predictions[test_number:], train_y[test_number:]):
                     if j == k:
                         counter_good += 1
                 fitness_value = counter_good / counter_all * 0.5 + (
-                        1 - abs(predictions.count(0) - predictions.count(1)) / counter_all) * 0.5
+                        1 - abs(predictions[test_number:].count(0) - predictions[test_number:].count(1)) / counter_all) * 0.5
                 net_dict['f_value'] = fitness_value
-                counter_zeros, counter_ones = self.guessed_number(predictions, train_y)
-                net_dict['metrics'] = str(f'Net number {v}. f: {fitness_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y.count(0)}, guessed ones {counter_ones}/{train_y.count(1)}')
-                if (v % 10) == 0:
-                    print(f'Net number {v}. f: {fitness_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y.count(0)}, guessed ones {counter_ones}/{train_y.count(1)}')
-
+                counter_zeros, counter_ones = self.guessed_number(predictions[test_number:], train_y[test_number:])
+                f1_value = f1_score(train_y[test_number:], predictions[test_number:])
+                net_dict['metrics'] = str(f'Net number {v}. f: {f1_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y[test_number:].count(0)}, guessed ones {counter_ones}/{train_y[test_number:].count(1)}, f1 {f1_value}')
+                if (v % 1) == 0:
+                    print(f'Net number {v}. f: {fitness_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y[test_number:].count(0)}, guessed ones {counter_ones}/{train_y[test_number:].count(1)}, f1 {f1_value}')
+            t_end = datetime.datetime.now()
+            print(t_end - t_start)
             current_accuracy = self.new_population()
 
-BUFFER_LENGTH = 10
+BUFFER_LENGTH = 60
 
 # old_train_X, train_y = generate_dataset(2, 2)
 # train_X = []
