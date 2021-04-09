@@ -32,7 +32,8 @@ class Neuron():
         else:
             print('not active')
             self.signal_output = 0
-
+    # def interaction(self):
+    #     if sel
 
 def simulation(organism):
     while True:
