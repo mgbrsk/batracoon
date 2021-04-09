@@ -671,9 +671,10 @@ class Population:
                         counter_good += 1
                 fitness_value = counter_good / counter_all * 0.5 + (
                         1 - abs(predictions[test_number:].count(0) - predictions[test_number:].count(1)) / counter_all) * 0.5
-                net_dict['f_value'] = fitness_value
-                counter_zeros, counter_ones = self.guessed_number(predictions[test_number:], train_y[test_number:])
                 f1_value = f1_score(train_y[test_number:], predictions[test_number:])
+                net_dict['f_value'] = f1_value
+                counter_zeros, counter_ones = self.guessed_number(predictions[test_number:], train_y[test_number:])
+#                 f1_value = f1_score(train_y[test_number:], predictions[test_number:])
                 net_dict['metrics'] = str(f'Net number {v}. f: {f1_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y[test_number:].count(0)}, guessed ones {counter_ones}/{train_y[test_number:].count(1)}, f1 {f1_value}')
                 if (v % 1) == 0:
                     print(f'Net number {v}. f: {fitness_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y[test_number:].count(0)}, guessed ones {counter_ones}/{train_y[test_number:].count(1)}, f1 {f1_value}')
