@@ -6,6 +6,7 @@ from random import randint, choice
 import datetime
 import pickle
 from sklearn.metrics import f1_score
+from sklearn.metrics import balanced_accuracy_score
 
 
 def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
@@ -671,7 +672,8 @@ class Population:
                         counter_good += 1
                 fitness_value = counter_good / counter_all * 0.5 + (
                         1 - abs(predictions[test_number:].count(0) - predictions[test_number:].count(1)) / counter_all) * 0.5
-                f1_value = f1_score(train_y[test_number:], predictions[test_number:])
+                f1_value = balanced_accuracy_score(train_y[test_number:], predictions[test_number:])
+                # f1_value = f1_score(train_y[test_number:], predictions[test_number:])
                 net_dict['f_value'] = f1_value
                 counter_zeros, counter_ones = self.guessed_number(predictions[test_number:], train_y[test_number:])
 #                 f1_value = f1_score(train_y[test_number:], predictions[test_number:])
