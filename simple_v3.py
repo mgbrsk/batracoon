@@ -3,8 +3,7 @@ from collections import defaultdict, Counter
 import random
 from functools import reduce
 from random import randint, choice
-import datetime
-import pickle
+from typing import Tuple
 
 
 def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number: int):
@@ -41,6 +40,7 @@ def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number
     #     elif ones_count > 2 ** (inputs_count - 1):
     #         io_list[-1]['y'] = 0
     io_list = [{'x': [0, 1], 'y': 1}, {'x': [1, 0], 'y': 1}, {'x': [1, 1], 'y': 0}, {'x': [1, 1], 'y': 0}]
+   
 
     x_list, y_list = [], []
     for _ in range(repeat_blocks_number):
@@ -66,7 +66,10 @@ class Synapse:
         if genome:
             self.genome = genome
         else:
-            self.genome = {'cd': {'input': {}, 'output': {}}, 'dw': {'input': {}, 'output': {}}}
+            self.genome = {'cd': {'input': {}, 'output': {}},
+                           'dw': {'input': {}, 'output': {}}
+                           }
+
         self.is_signal = False
         self.weight = weight  # вес
         self.input_vars = {}
@@ -76,7 +79,7 @@ class Synapse:
         self.dw = 0
         self.history = [0 for _ in range(BUFFER_LENGTH)]
 
-    # проверка есть ли сигнал в синапсе и сразу зануляем
+    # Проверка есть ли сигнал в синапсе и сразу зануляем.
     def check_signal(self):
         if self.is_signal and self.is_real:
             self.is_signal = False
@@ -84,7 +87,7 @@ class Synapse:
         else:
             return False
 
-    # метод активации синапса
+    # Метод активации синапса.
     def activate(self):
         if self.is_real:
             self.is_signal = True
@@ -105,22 +108,37 @@ class Synapse:
         self.input_vars[1] = counter / 100
         self.output_vars[1] = counter / 100
 
-        self.input_vars[45] = self.get_division(self.input_vars[0], self.input_vars[1]) / 100
-        self.input_vars[46] = self.get_division(self.input_vars[0], self.input_vars[14]) / 100
-        self.input_vars[47] = self.get_division(self.input_vars[0], self.input_vars[15]) / 100
+        self.input_vars[45] = self.get_division(self.input_vars[0],
+                                                self.input_vars[1]) / 100
+        self.input_vars[46] = self.get_division(self.input_vars[0],
+                                                self.input_vars[14]) / 100
+        self.input_vars[47] = self.get_division(self.input_vars[0],
+                                                self.input_vars[15]) / 100
 
-        self.output_vars[45] = self.get_division(self.output_vars[0], self.output_vars[1]) / 100
-        self.output_vars[46] = self.get_division(self.output_vars[0], self.output_vars[14]) / 100
-        self.output_vars[47] = self.get_division(self.output_vars[0], self.output_vars[15]) / 100
+        self.output_vars[45] = self.get_division(self.output_vars[0],
+                                                 self.output_vars[1]) / 100
+        self.output_vars[46] = self.get_division(self.output_vars[0],
+                                                 self.output_vars[14]) / 100
+        self.output_vars[47] = self.get_division(self.output_vars[0],
+                                                 self.output_vars[15]) / 100
 
-        self.input_vars[48] = self.output_vars[48] = self.history.count(1) / 100
+        self.input_vars[48] = self.output_vars[48] = self.history.count(
+            1) / 100
         self.input_vars[49] = self.output_vars[49] = self.weight / 100
         for i in range(18):
-            self.input_vars[50 + i] = self.get_division(self.input_vars[48], self.input_vars[i + 1]) / 100
-            self.output_vars[50 + i] = self.get_division(self.output_vars[48], self.output_vars[i + 1]) / 100
+            self.input_vars[50 + i] = self.get_division(self.input_vars[48],
+                                                        self.input_vars[
+                                                            i + 1]) / 100
+            self.output_vars[50 + i] = self.get_division(self.output_vars[48],
+                                                         self.output_vars[
+                                                             i + 1]) / 100
         for i in range(18):
-            self.input_vars[68 + i] = self.get_division(self.input_vars[49], self.input_vars[i + 1]) / 100
-            self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1]) / 100
+            self.input_vars[68 + i] = self.get_division(self.input_vars[49],
+                                                        self.input_vars[
+                                                            i + 1]) / 100
+            self.output_vars[68 + i] = self.get_division(self.output_vars[49],
+                                                         self.output_vars[
+                                                             i + 1]) / 100
 
     def get_vars(self):
         input_vars = self.input_neuron.get_params()
@@ -186,7 +204,8 @@ class Neuron:
     """
     Какие параметры нейрона могут быть? Включаем фантазию:
     -0 расстояние до выхода
-    -1 показатель как часто одновременно активируется этот нейрон и другой (можно передать историю активаций)
+    -1 показатель как часто одновременно активируется этот нейрон и другой
+        (можно передать историю активаций)
     -2 количество входных синапсов
     -3 количество выходных синапсов
     -4 количество отрицательных входных синапсов
@@ -203,7 +222,8 @@ class Neuron:
     -15 количество входных импульсов за последнее время
     -16 количество положительных входных импульсов за последнее время
     -17 количество отрицательных входных импульсов за последнее время
-    -18 количество активаций самого активного входного синапса за последнее время
+    -18 количество активаций самого активного входного синапса за последнее
+        время
     -19 отношение 2 и 3
     -20 отношение 4 и 5
     -21 отношение 6 и 7
@@ -334,7 +354,8 @@ class Neuron:
             return 0
 
     def get_more_activated(self):
-        all_activations = reduce(lambda x, y: x.extend(y) or x, self.synapse_history, [])
+        all_activations = reduce(lambda x, y: x.extend(y) or
+                                              x, self.synapse_history, [])
         try:
             return Counter(all_activations).most_common(1)[0][1]
         except:
@@ -348,18 +369,27 @@ class Neuron:
         self.p[1] = self.spike_history
         self.p[2] = self.get_number_of_synapses(self.input_synapses) / 100
         self.p[3] = self.get_number_of_synapses(self.output_synapses) / 100
-        self.p[4] = self.get_number_of_synapses(self.input_synapses, sign='neg') / 100
-        self.p[5] = self.get_number_of_synapses(self.input_synapses, sign='pos') / 100
-        self.p[6] = self.get_number_of_synapses(self.output_synapses, sign='neg') / 100
-        self.p[7] = self.get_number_of_synapses(self.output_synapses, sign='pos') / 100
+        self.p[4] = self.get_number_of_synapses(self.input_synapses,
+                                                sign='neg') / 100
+        self.p[5] = self.get_number_of_synapses(self.input_synapses,
+                                                sign='pos') / 100
+        self.p[6] = self.get_number_of_synapses(self.output_synapses,
+                                                sign='neg') / 100
+        self.p[7] = self.get_number_of_synapses(self.output_synapses,
+                                                sign='pos') / 100
         self.p[8] = self.get_sum_of_weights(self.input_synapses) / 100
         self.p[9] = self.get_sum_of_weights(self.output_synapses) / 100
-        self.p[10] = self.get_sum_of_weights(self.input_synapses, sign='pos') / 100
-        self.p[11] = self.get_sum_of_weights(self.output_synapses, sign='neg') / 100
-        self.p[12] = self.get_sum_of_weights(self.input_synapses, sign='pos') / 100
-        self.p[13] = self.get_sum_of_weights(self.output_synapses, sign='neg') / 100
+        self.p[10] = self.get_sum_of_weights(self.input_synapses,
+                                             sign='pos') / 100
+        self.p[11] = self.get_sum_of_weights(self.output_synapses,
+                                             sign='neg') / 100
+        self.p[12] = self.get_sum_of_weights(self.input_synapses,
+                                             sign='pos') / 100
+        self.p[13] = self.get_sum_of_weights(self.output_synapses,
+                                             sign='neg') / 100
         self.p[14] = self.spike_history.count(1) / 100
-        self.p[15] = reduce(lambda x, y: x + len(y), self.synapse_history, 0) / 100
+        self.p[15] = reduce(lambda x, y: x + len(y), self.synapse_history,
+                            0) / 100
         self.p[16] = self.get_sign_sum_of_input_impulses(sign='pos') / 100
         self.p[17] = self.get_sign_sum_of_input_impulses(sign='neg') / 100
         self.p[18] = self.get_more_activated() / 100
@@ -435,7 +465,8 @@ class Neuron:
 
 
 class Net:
-    def __init__(self, n_neurons, genome=None, input_numbers=None, output_number=None):
+    def __init__(self, n_neurons, genome=None, input_numbers=None,
+                 output_number=None):
         self.neurons = []
         self.synapses = []
         if input_numbers is None:
@@ -675,6 +706,7 @@ class Population:
                     print(f'Net number {v}. f: {fitness_value}, c: {counter_good}/{counter_all}, guessed zeros {counter_zeros}/{train_y.count(0)}, guessed ones {counter_ones}/{train_y.count(1)}')
 
             current_accuracy = self.new_population()
+
 
 BUFFER_LENGTH = 10
 
