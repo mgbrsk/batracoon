@@ -135,7 +135,7 @@ class Synapse:
         self.dw = 0  # умолчательное значение переменной, ответственной за изменение веса синапса
         self.history = [0 for _ in range(BUFFER_LENGTH)]  # история активаций синапса
 
-    # Проверка есть ли сигнал в синапсе и сразу зануляем.
+    # проверка есть ли сигнал в синапсе и сразу зануляем
     def check_signal(self):
         if self.is_signal and self.is_real:  # если есть сигнал и синапс существует
             self.is_signal = False
@@ -181,19 +181,11 @@ class Synapse:
         self.input_vars[48] = self.output_vars[48] = self.history.count(1) / 100
         self.input_vars[49] = self.output_vars[49] = self.weight / 100
         for i in range(18):
-            self.input_vars[50 + i] = self.get_division(self.input_vars[48],
-                                                        self.input_vars[
-                                                            i + 1]) / 100
-            self.output_vars[50 + i] = self.get_division(self.output_vars[48],
-                                                         self.output_vars[
-                                                             i + 1]) / 100
+            self.input_vars[50 + i] = self.get_division(self.input_vars[48], self.input_vars[i + 1]) / 100
+            self.output_vars[50 + i] = self.get_division(self.output_vars[48], self.output_vars[i + 1]) / 100
         for i in range(18):
-            self.input_vars[68 + i] = self.get_division(self.input_vars[49],
-                                                        self.input_vars[
-                                                            i + 1]) / 100
-            self.output_vars[68 + i] = self.get_division(self.output_vars[49],
-                                                         self.output_vars[
-                                                             i + 1]) / 100
+            self.input_vars[68 + i] = self.get_division(self.input_vars[49], self.input_vars[i + 1]) / 100
+            self.output_vars[68 + i] = self.get_division(self.output_vars[49], self.output_vars[i + 1]) / 100
 
     # метод подсчета переменных cd и dw
     def calculate_cddw(self):
@@ -279,8 +271,7 @@ class Neuron:
     -15 количество входных импульсов за последнее время
     -16 количество положительных входных импульсов за последнее время
     -17 количество отрицательных входных импульсов за последнее время
-    -18 количество активаций самого активного входного синапса за последнее
-        время
+    -18 количество активаций самого активного входного синапса за последнее время
     -19 отношение 2 и 3
     -20 отношение 4 и 5
     -21 отношение 6 и 7
