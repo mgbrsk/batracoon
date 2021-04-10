@@ -625,7 +625,7 @@ class Net:
                 self.probe(i)
 
     # все действия, которые происходят на каждый такт времени
-    def tick(self, reaction):
+    def tick(self, reaction, learning=True):
         out_signal = False  # пока на выходе сети нет сигнала
         for s in self.synapses:
             s.check_input_signal()  # передаем из входных нейрнов сигналы в существующие синапсы
@@ -635,29 +635,30 @@ class Net:
             n.erase()  # очищаем все нейроны
         for s in self.synapses:
             s.add_signals()  # передаем сигналы из синапсов в выходные нейроны
-        for n in self.neurons:
-            n.extract_params(is_right=reaction)  # рассчитываем внутренние параметры нейронов
-        for s in self.synapses:
-            s.get_vars()  # получаем параметры нейронов
-            s.calculate_cddw()  # рассчитываем cd и dw
-            s.check_existing()  # убираем или создаем или оставляем как есть синапс
-            s.move_weight()  # изменяем вес синапса
+        if learning:
+            for n in self.neurons:
+                n.extract_params(is_right=reaction)  # рассчитываем внутренние параметры нейронов
+            for s in self.synapses:
+                s.get_vars()  # получаем параметры нейронов
+                s.calculate_cddw()  # рассчитываем cd и dw
+                s.check_existing()  # убираем или создаем или оставляем как есть синапс
+                s.move_weight()  # изменяем вес синапса
         return int(out_signal)  # возвращаем, активировался ли выходной нейрон
 
     # метод прогона входной последовательности сигналов и передачи эталонных результатов в сеть
-    def predict(self, X, y):
+    def predict(self, X, y, learning=True):
         result = []
         # идем по входным данным
         for i in range(len(X)):
             cur_x = X[i]
             self.massive_probe(cur_x)  # запускаем сигналы во входные нейроны
             if i == 0:  # если это самый первый тик
-                res = self.tick(0)  # передаем заданное значение ошибки
+                res = self.tick(0, learning=learning)  # передаем заданное значение ошибки
             else:  # если уже не первый тик
                 if result[-1] == y[i - 1]:  # проверяем что выход сети совпадает с эталонным ответом на этом тике
-                    res = self.tick(1)  # если совпало говорим сети что ок
+                    res = self.tick(1, learning=learning)  # если совпало говорим сети что ок
                 else:
-                    res = self.tick(0)  # если не совпало говорим что не ок
+                    res = self.tick(0, learning=learning)  # если не совпало говорим что не ок
             result.append(res)  # записываем что у нас на данном тике на выходе
         return result  # возвращаем результат
 
@@ -713,10 +714,10 @@ class Population:
 
     # метод создания датасета для сети
     def create_dataset(self):
-        X, y = generate_dataset(SIGNAL_LENGTH, 2, 80, custom_table=[{'x': [0, 1], 'y': 1},
-                                                                    {'x': [1, 0], 'y': 1},
-                                                                    {'x': [1, 1], 'y': 0},
-                                                                    {'x': [1, 1], 'y': 0}])
+        X, y = generate_dataset(SIGNAL_LENGTH, 2, IMPULSES_NUMBER, custom_table=[{'x': [0, 1], 'y': 1},
+                                                                                 {'x': [1, 0], 'y': 1},
+                                                                                 {'x': [1, 1], 'y': 0},
+                                                                                 {'x': [1, 1], 'y': 0}])
         return X, y
 
     # метод мутации лучших геномов
@@ -797,6 +798,11 @@ class Population:
         self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
         print(f"Best net notes: {self.current_population[0]['metrics']}")
         accuracy = self.current_population[0]["f_value"]  # берем лучшее качество
+        if accuracy > 0.75:
+            net = self.current_population[0]['net']
+            for s in net.synapses:
+                if s.is_real:
+                    print(s.input_neuron.number, s.output_neuron.number, s.weight)
         self.get_average_number_of_synapses(self.current_population[:20])  # считаем синапсы
         best_nets = [x['genome'] for x in self.current_population[:20]]  # берем для размножения и мутации лучших
         all_nets = [x['genome'] for x in self.current_population]  # берем для размножения всех всех
@@ -861,15 +867,16 @@ class Population:
             pop_accuracy = 0  # качество в текущем поколении
             for v, net_dict in enumerate(self.current_population):  # идем по всем сетям текущего поколения
                 net = net_dict['net']  # берем непосредственно сеть
-                predictions = net.predict(train_X, train_y)  # получаем результаты ее работы
+                net.predict(train_X[:SIGNAL_LENGTH * 60], train_y[:SIGNAL_LENGTH * 60])  # обучаем
+                predictions = net.predict(train_X[SIGNAL_LENGTH * 60:], train_y[SIGNAL_LENGTH * 60:], learning=False)  # получаем результаты ее работы
                 # считаем качество
-                test_length = 80 - 20  # от какого с конца сигнала используем датасет для расчета качества
+                test_length = 20  # от какого с конца сигнала используем датасет для расчета качества
                 f1_value, fitness_value, counter_zeros, counter_ones = \
-                    self.calculate_quality(predictions, train_y, test_length)
+                    self.calculate_quality(predictions, train_y[SIGNAL_LENGTH * 60:], test_length)
                 net_dict['f_value'] = f1_value  # сохраняем качество данной сети
                 # сохраняем в заметках параметры
                 net_dict['metrics'] = \
-                    str(f'Net number {v}. f: {str(f1_value)[:6]}, guessed zeros {counter_zeros}/{train_y[test_length * SIGNAL_LENGTH:].count(0)}, guessed ones {counter_ones}/{train_y[test_length * SIGNAL_LENGTH:].count(1)}, custom quality {str(fitness_value)[:6]}')
+                    str(f'Net number {v}. f: {str(f1_value)[:6]}, guessed zeros {counter_zeros}/{train_y[80 * SIGNAL_LENGTH:].count(0)}, guessed ones {counter_ones}/{train_y[80 * SIGNAL_LENGTH:].count(1)}, custom quality {str(fitness_value)[:6]}')
                 if f1_value > pop_accuracy:  # если у нас лучшая сеть в популяции, говорим о ней
                     pop_accuracy = f1_value
                     print('New best net in current generation: ' + str(net_dict['metrics']))
@@ -885,7 +892,8 @@ class Population:
 
 BUFFER_LENGTH = 80  # длина буфера памяти истории активаций каждого синапса и каждого нейрона
 SIGNAL_LENGTH = 23  # длина сигнала в тиках
+IMPULSES_NUMBER = 100
 
 
-p = Population(population_size=100)
+p = Population(population_size=100, from_file=True)
 p.fit(0.95)
