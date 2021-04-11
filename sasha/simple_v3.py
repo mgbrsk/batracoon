@@ -806,6 +806,7 @@ class Population:
             for s in net.synapses:
                 if s.is_real:
                     result['synapses'].append([s.input_neuron.number, s.output_neuron.number, s.weight])
+                    print(s.input_neuron.number, s.output_neuron.number, s.weight)
             with open('arch_' + str(datetime.datetime.now()) + '.pickle', 'wb') as file:
                 pickle.dump(result, file)
         self.get_average_number_of_synapses(self.current_population[:20])  # считаем синапсы
