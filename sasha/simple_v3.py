@@ -873,7 +873,7 @@ class Population:
             for v, net_dict in enumerate(self.current_population):  # идем по всем сетям текущего поколения
                 net = net_dict['net']  # берем непосредственно сеть
                 # net.predict(train_X[:SIGNAL_LENGTH * 60], train_y[:SIGNAL_LENGTH * 60])  # обучаем
-                predictions = net.predict(train_X, train_y, learning=False)  # получаем результаты ее работы
+                predictions = net.predict(train_X, train_y, learning=True)  # получаем результаты ее работы
                 # считаем качество
                 test_length = 100 - 20  # от какого с конца сигнала используем датасет для расчета качества
                 f1_value, fitness_value, counter_zeros, counter_ones = \
