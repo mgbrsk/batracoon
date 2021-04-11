@@ -793,16 +793,21 @@ class Population:
         self.new_genomes = []  # очищаем переменную с новым поколением, потому что они уже в текущем
 
     # метод создания нового поколения
-    def new_population(self):
+    def new_population(self, generation_number):
         # сортируем все сети по степени их приспособленности, у нас это f_value
         self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
         print(f"Best net notes: {self.current_population[0]['metrics']}")
         accuracy = self.current_population[0]["f_value"]  # берем лучшее качество
         if accuracy > 0.75:
+            net_number = self.current_population[0]['metrics'].split('Net number ')[0]
+            net_number = net_number.split('.')[0]
+            result = {'generation_number': generation_number, 'net_number': net_number, 'synapses': []}
             net = self.current_population[0]['net']
             for s in net.synapses:
                 if s.is_real:
-                    print(s.input_neuron.number, s.output_neuron.number, s.weight)
+                    result['synapses'].append([s.input_neuron.number, s.output_neuron.number, s.weight])
+            with open('arch_' + str(datetime.datetime.now()) + '.pickle', 'wb') as file:
+                pickle.dump(result, file)
         self.get_average_number_of_synapses(self.current_population[:20])  # считаем синапсы
         best_nets = [x['genome'] for x in self.current_population[:20]]  # берем для размножения и мутации лучших
         all_nets = [x['genome'] for x in self.current_population]  # берем для размножения всех всех
@@ -867,21 +872,21 @@ class Population:
             pop_accuracy = 0  # качество в текущем поколении
             for v, net_dict in enumerate(self.current_population):  # идем по всем сетям текущего поколения
                 net = net_dict['net']  # берем непосредственно сеть
-                net.predict(train_X[:SIGNAL_LENGTH * 60], train_y[:SIGNAL_LENGTH * 60])  # обучаем
-                predictions = net.predict(train_X[SIGNAL_LENGTH * 60:], train_y[SIGNAL_LENGTH * 60:], learning=False)  # получаем результаты ее работы
+                # net.predict(train_X[:SIGNAL_LENGTH * 60], train_y[:SIGNAL_LENGTH * 60])  # обучаем
+                predictions = net.predict(train_X, train_y, learning=False)  # получаем результаты ее работы
                 # считаем качество
-                test_length = 20  # от какого с конца сигнала используем датасет для расчета качества
+                test_length = 100 - 20  # от какого с конца сигнала используем датасет для расчета качества
                 f1_value, fitness_value, counter_zeros, counter_ones = \
-                    self.calculate_quality(predictions, train_y[SIGNAL_LENGTH * 60:], test_length)
+                    self.calculate_quality(predictions, train_y, test_length)
                 net_dict['f_value'] = f1_value  # сохраняем качество данной сети
                 # сохраняем в заметках параметры
                 net_dict['metrics'] = \
-                    str(f'Net number {v}. f: {str(f1_value)[:6]}, guessed zeros {counter_zeros}/{train_y[80 * SIGNAL_LENGTH:].count(0)}, guessed ones {counter_ones}/{train_y[80 * SIGNAL_LENGTH:].count(1)}, custom quality {str(fitness_value)[:6]}')
+                    str(f'Net number {v}. f: {str(f1_value)[:6]}, guessed zeros {counter_zeros}/{train_y[test_length * SIGNAL_LENGTH:].count(0)}, guessed ones {counter_ones}/{train_y[test_length * SIGNAL_LENGTH:].count(1)}, custom quality {str(fitness_value)[:6]}')
                 if f1_value > pop_accuracy:  # если у нас лучшая сеть в популяции, говорим о ней
                     pop_accuracy = f1_value
                     print('New best net in current generation: ' + str(net_dict['metrics']))
             t_end = datetime.datetime.now()  # время конца прогона данных
-            current_accuracy = self.new_population()  # создаем новое поколение
+            current_accuracy = self.new_population(count)  # создаем новое поколение
             print("   *****   ")
             print(f"Current population statistic:")
             print(f"generation number: {count}")
