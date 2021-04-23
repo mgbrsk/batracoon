@@ -99,7 +99,7 @@ class Net:
         if self.n_signals[self.output_neuron] > 0:
             out_signal = 1
         self.update_parameters(reaction)  # reaction
-        if learning and self.count_cutoff < 200:
+        if learning and self.count_cutoff < 400:
             self.compute_cd()  # reaction
             self.compute_dw()  #
             self.compute_interaction()
@@ -209,7 +209,7 @@ def test():
 
 
 BUFFER_SIZE = 10
-test()
+# test()
 
 
 class Population:
@@ -275,7 +275,7 @@ class Population:
                 for j in ['input', 'output']:
                     for k in range(len(item['cd']['input'].keys())):
                         if random.random() < 0.2:  # с вероятностью 0.1
-                            item[i][j][k] += (5 * random.random() - 2.5) * 0.1  # прибавляем рандомное число к параметру
+                            item[i][j][k] += (2 * random.random() - 1) * 0.1  # прибавляем рандомное число к параметру
         self.new_genomes += best_nets  # записываем мутировавший геном в список нового поколения
 
     # метод размножения лучших геномов
