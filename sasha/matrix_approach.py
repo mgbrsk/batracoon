@@ -56,6 +56,7 @@ def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number
 
 class Net:
     def __init__(self, neurons_number=5, input_neurons=None, output_neuron=4, genome=None, parameters_number=3):
+        self.count_cutoff = 0
         self.neurons_number = neurons_number
         self.output_neuron = output_neuron
         if input_neurons is not None:
@@ -86,25 +87,35 @@ class Net:
         # история активаций (mock), расстояние до входа, правильность*расстояние
         self.n_parameters = np.zeros((self.neurons_number, self.parameters_number))  # * 2 - 1
         for n in self.input_neurons:
-            self.n_parameters[n, 1] = 0
-        self.n_parameters[self.output_neuron, 0] = 1
+            self.n_parameters[n, 1] = 1
+        self.n_parameters[self.output_neuron, 1] = 1
 
     def tick(self, reaction=0, learning=True):
         out_signal = 0
         self.n_signals = np.where(self.n_accumulator >= 1, 1, self.n_signals)
         temp = self.s_weights * self.s_real * self.n_signals
         self.n_accumulator = np.sum(temp, axis=1)  # n_accumulator + temp_sum
+        self.random_activation(0.05)
         if self.n_signals[self.output_neuron] > 0:
             out_signal = 1
-        if learning:
-            self.update_parameters(reaction)  # reaction
+        self.update_parameters(reaction)  # reaction
+        if learning and self.count_cutoff < 200:
             self.compute_cd()  # reaction
             self.compute_dw()  #
             self.compute_interaction()
             self.check_real()
             self.move_weights()
+            self.count_cutoff += 1
         self.n_signals = np.zeros((self.neurons_number,))
         return out_signal
+
+    def random_activation(self, probability):
+        r_a_matrix = np.random.rand(self.neurons_number)
+        synapse_numbers = np.sum(self.s_real, axis=0) + np.sum(self.s_real, axis=1)
+        synapse_numbers = synapse_numbers + 1
+        r_a_matrix = r_a_matrix / synapse_numbers
+        # r_a_matrix = np.where(r_a_matrix > probability, 1, 0)
+        self.n_signals = np.where(r_a_matrix < probability, 1, self.n_signals)
 
     def compute_interaction(self):
         interaction_matrix = np.dot(self.n_activation_history.T, self.n_activation_history)
@@ -149,7 +160,7 @@ class Net:
 
     def move_weights(self):
         # получение новых весов s_weights
-        self.s_weights = self.s_weights + self.s_dw * 0.05
+        self.s_weights = self.s_weights + self.s_dw * 0.2
         # обнуляем веса удаленных синапсов
         self.s_weights = self.s_weights * self.s_real
 
@@ -233,12 +244,12 @@ class Population:
                 # и создаем рандомные геномы
                 test_genome = {
                     'cd': {
-                        'input': {x: 2 * random.random() - 1 for x in range(3)},
-                        'output': {x: 2 * random.random() - 1 for x in range(3)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(3)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(3)}
                     },
                     'dw': {
-                        'input': {x: 2 * random.random() - 1 for x in range(3)},
-                        'output': {x: 2 * random.random() - 1 for x in range(3)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(3)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(3)}
                     }
                 }
                 # из них создаем сети
@@ -263,8 +274,8 @@ class Population:
             for i in ['cd', 'dw']:
                 for j in ['input', 'output']:
                     for k in range(len(item['cd']['input'].keys())):
-                        if random.random() < 0.1:  # с вероятностью 0.1
-                            item[i][j][k] += (2 * random.random() - 1) * 0.1  # прибавляем рандомное число к параметру
+                        if random.random() < 0.2:  # с вероятностью 0.1
+                            item[i][j][k] += (5 * random.random() - 2.5) * 0.1  # прибавляем рандомное число к параметру
         self.new_genomes += best_nets  # записываем мутировавший геном в список нового поколения
 
     # метод размножения лучших геномов
@@ -333,17 +344,19 @@ class Population:
         self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
         print(f"Best net notes: {self.current_population[0]['metrics']}")
         accuracy = self.current_population[0]["f_value"]  # берем лучшее качество
-        if accuracy > 0.75:
+        if accuracy > 0.80:
             net_number = self.current_population[0]['metrics'].split('Net number ')[0]
             net_number = net_number.split('.')[0]
             result = {'generation_number': generation_number, 'net_number': net_number, 'synapses': []}
             net = self.current_population[0]['net']
-            for s in net.synapses:
-                if s.is_real:
-                    result['synapses'].append([s.input_neuron.number, s.output_neuron.number, s.weight])
-                    print(s.input_neuron.number, s.output_neuron.number, s.weight)
-            with open('arch_' + str(random.random()).split('.')[1] + '.pickle', 'wb') as file:
-                pickle.dump(result, file)
+            print(net.s_real)
+            print(net.s_weights)
+            print(net.s_cd_input)
+            print(net.s_cd_output)
+            print(net.s_dw_input)
+            print(net.s_dw_output)
+            # with open('arch_' + str(random.random()).split('.')[1] + '.pickle', 'wb') as file:
+            #     pickle.dump(result, file)
         self.get_average_number_of_synapses(self.current_population[:20])  # считаем синапсы
         best_nets = [x['genome'] for x in self.current_population[:20]]  # берем для размножения и мутации лучших
         all_nets = [x['genome'] for x in self.current_population]  # берем для размножения всех всех
@@ -436,5 +449,5 @@ SIGNAL_LENGTH = 23  # длина сигнала в тиках
 IMPULSES_NUMBER = 110
 
 
-p = Population(population_size=100, neurons_number=5)
+p = Population(population_size=100, neurons_number=5, from_file=False)
 p.fit(0.92)
