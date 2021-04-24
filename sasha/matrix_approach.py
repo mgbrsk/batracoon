@@ -4,6 +4,8 @@ import datetime
 import random
 from random import randint
 import pickle
+import warnings
+warnings.filterwarnings('ignore')
 
 from sklearn.metrics import balanced_accuracy_score
 
@@ -55,8 +57,8 @@ def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number
 
 
 class Net:
-    def __init__(self, neurons_number=5, input_neurons=None, output_neuron=4, genome=None, parameters_number=3):
-        self.count_cutoff = 0
+    def __init__(self, neurons_number=5, input_neurons=None, output_neuron=4, genome=None, parameters_number=12):
+        self.count_cutoff = 0.0
         self.neurons_number = neurons_number
         self.output_neuron = output_neuron
         if input_neurons is not None:
@@ -84,22 +86,33 @@ class Net:
         self.s_real = np.zeros((self.neurons_number, self.neurons_number))
         self.s_cd = np.zeros((self.neurons_number, self.neurons_number))
         self.s_dw = np.zeros((self.neurons_number, self.neurons_number))
-        # история активаций (mock), расстояние до входа, правильность*расстояние
+        # история активаций (mock),
+        # расстояние до входа,
+        # правильность*расстояние
+        # количество синапсов,
+        # количество входных,
+        # количество выходных,
+        # сумма весов,
+        # сумма положительных вх весов,
+        # сумма отрицательных вх весов,
+        # сумма пол вых весов,
+        # сумма отр вых весов,
+        # чистая реакция
         self.n_parameters = np.zeros((self.neurons_number, self.parameters_number))  # * 2 - 1
         for n in self.input_neurons:
-            self.n_parameters[n, 1] = 1
-        self.n_parameters[self.output_neuron, 1] = 1
+            self.n_parameters[n, 1] = 0.0
+        self.n_parameters[self.output_neuron, 1] = 1.0
 
     def tick(self, reaction=0, learning=True):
         out_signal = 0
-        self.n_signals = np.where(self.n_accumulator >= 1, 1, self.n_signals)
+        self.n_signals = np.where(self.n_accumulator >= 1.0, 1.0, self.n_signals)
         temp = self.s_weights * self.s_real * self.n_signals
         self.n_accumulator = np.sum(temp, axis=1)  # n_accumulator + temp_sum
         self.random_activation(0.05)
-        if self.n_signals[self.output_neuron] > 0:
-            out_signal = 1
+        if self.n_signals[self.output_neuron] > 0.0:
+            out_signal = 1.0
         self.update_parameters(reaction)  # reaction
-        if learning and self.count_cutoff < 200:
+        if learning and self.count_cutoff < 400:
             self.compute_cd()  # reaction
             self.compute_dw()  #
             self.compute_interaction()
@@ -112,14 +125,13 @@ class Net:
     def random_activation(self, probability):
         r_a_matrix = np.random.rand(self.neurons_number)
         synapse_numbers = np.sum(self.s_real, axis=0) + np.sum(self.s_real, axis=1)
-        synapse_numbers = synapse_numbers + 1
+        synapse_numbers = synapse_numbers + 1.0
         r_a_matrix = r_a_matrix / synapse_numbers
-        # r_a_matrix = np.where(r_a_matrix > probability, 1, 0)
-        self.n_signals = np.where(r_a_matrix < probability, 1, self.n_signals)
+        self.n_signals = np.where(r_a_matrix < probability, 1.0, self.n_signals)
 
     def compute_interaction(self):
         interaction_matrix = np.dot(self.n_activation_history.T, self.n_activation_history)
-        np.fill_diagonal(interaction_matrix, 0)
+        np.fill_diagonal(interaction_matrix, 0.0)
         cd_input = interaction_matrix * self.s_cd_input[0]
         cd_output = interaction_matrix * self.s_cd_output[0]
         dw_input = interaction_matrix * self.s_dw_input[0]
@@ -128,33 +140,42 @@ class Net:
         dw = dw_input + dw_output
         self.s_cd = self.s_cd + cd
         self.s_dw = self.s_dw + dw
-        np.fill_diagonal(self.s_cd, 0)
-        np.fill_diagonal(self.s_dw, 0)
+        np.fill_diagonal(self.s_cd, 0.0)
+        np.fill_diagonal(self.s_dw, 0.0)
 
     def update_parameters(self, reaction):
         self.n_activation_history = np.roll(self.n_activation_history, shift=1, axis=0)
         self.n_activation_history[0] = self.n_signals
         self.n_parameters[:, 2] = self.n_parameters[:, 1] * reaction
+        self.n_parameters[:, 3] = np.sum(self.s_real, axis=0) + np.sum(self.s_real, axis=1)
+        self.n_parameters[:, 4] = np.sum(self.s_real, axis=1)
+        self.n_parameters[:, 5] = np.sum(self.s_real, axis=0)
+        self.n_parameters[:, 6] = np.sum(self.s_weights, axis=0) + np.sum(self.s_weights, axis=1)
+        pos_weights = np.where(self.s_weights > 0.0, self.s_weights, 0.0)
+        neg_weights = np.where(self.s_weights < 0.0, self.s_weights, 0.0)
+        self.n_parameters[:, 7] = np.sum(pos_weights, axis=1)
+        self.n_parameters[:, 8] = np.sum(neg_weights, axis=1)
+        self.n_parameters[:, 9] = np.sum(pos_weights, axis=0)
+        self.n_parameters[:, 10] = np.sum(neg_weights, axis=0)
+        self.n_parameters[:, 11] = reaction
 
     def compute_cd(self):
-        # print(self.s_cd_input)
-        # print(self.n_parameters)
         cd_input = np.sum(self.s_cd_input[1:] * self.n_parameters[:, 1:], axis=1)
         cd_output = np.sum(self.s_cd_output[1:] * self.n_parameters[:, 1:], axis=1)
         self.s_cd = cd_input + cd_output.reshape((self.neurons_number, 1))
-        np.fill_diagonal(self.s_cd, 0)
+        np.fill_diagonal(self.s_cd, 0.0)
 
     def compute_dw(self):
         dw_input = np.sum(self.s_dw_input[1:] * self.n_parameters[:, 1:], axis=1)
         dw_output = np.sum(self.s_dw_output[1:] * self.n_parameters[:, 1:], axis=1)
         self.s_dw = dw_input + dw_output.reshape((self.neurons_number, 1))
-        np.fill_diagonal(self.s_dw, 0)
+        np.fill_diagonal(self.s_dw, 0.0)
 
     def check_real(self):
         # получение новых значений реальности s_real
-        temp_cd_greater = np.where(self.s_cd > 0.8, 1, 0)
-        temp_cd_less = np.where(self.s_cd < 0.2, 0, 1)
-        s_real_inverse = self.s_real * (-1) + 1
+        temp_cd_greater = np.where(self.s_cd > 0.8, 1.0, 0.0)
+        temp_cd_less = np.where(self.s_cd < 0.2, 0.0, 1.0)
+        s_real_inverse = self.s_real * (-1) + 1.0
         self.s_real = self.s_real + s_real_inverse * temp_cd_greater
         self.s_real = self.s_real * temp_cd_less
 
@@ -165,11 +186,11 @@ class Net:
         self.s_weights = self.s_weights * self.s_real
 
     def _make_synapse_real(self, n1, n2, weight=0.5):
-        self.s_real[n2, n1] = 1
+        self.s_real[n2, n1] = 1.0
         self.s_weights[n2, n1] = weight
 
     def probe(self, number):
-        self.n_accumulator[number] = 1
+        self.n_accumulator[number] = 1.0
 
     def massive_probe(self, array):
         for i in range(len(array)):
@@ -209,7 +230,7 @@ def test():
 
 
 BUFFER_SIZE = 10
-test()
+# test()
 
 
 class Population:
@@ -244,12 +265,12 @@ class Population:
                 # и создаем рандомные геномы
                 test_genome = {
                     'cd': {
-                        'input': {x: 5 * random.random() - 2.5 for x in range(3)},
-                        'output': {x: 5 * random.random() - 2.5 for x in range(3)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(12)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(12)}
                     },
                     'dw': {
-                        'input': {x: 5 * random.random() - 2.5 for x in range(3)},
-                        'output': {x: 5 * random.random() - 2.5 for x in range(3)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(12)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(12)}
                     }
                 }
                 # из них создаем сети
@@ -274,8 +295,8 @@ class Population:
             for i in ['cd', 'dw']:
                 for j in ['input', 'output']:
                     for k in range(len(item['cd']['input'].keys())):
-                        if random.random() < 0.2:  # с вероятностью 0.1
-                            item[i][j][k] += (5 * random.random() - 2.5) * 0.1  # прибавляем рандомное число к параметру
+                        if random.random() < 0.1:  # с вероятностью 0.1
+                            item[i][j][k] += (2 * random.random() - 1) * 0.05  # прибавляем рандомное число к параметру
         self.new_genomes += best_nets  # записываем мутировавший геном в список нового поколения
 
     # метод размножения лучших геномов
@@ -344,7 +365,7 @@ class Population:
         self.current_population.sort(key=lambda x: x['f_value'], reverse=True)
         print(f"Best net notes: {self.current_population[0]['metrics']}")
         accuracy = self.current_population[0]["f_value"]  # берем лучшее качество
-        if accuracy > 0.80:
+        if accuracy > 0.65:
             net_number = self.current_population[0]['metrics'].split('Net number ')[0]
             net_number = net_number.split('.')[0]
             result = {'generation_number': generation_number, 'net_number': net_number, 'synapses': []}
