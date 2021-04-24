@@ -4,8 +4,9 @@ import datetime
 import random
 from random import randint
 import pickle
-import warnings
-warnings.filterwarnings('ignore')
+# import warnings
+# warnings.filterwarnings('ignore')
+np.seterr(all='raise')
 
 from sklearn.metrics import balanced_accuracy_score
 
@@ -147,23 +148,36 @@ class Net:
         self.n_activation_history = np.roll(self.n_activation_history, shift=1, axis=0)
         self.n_activation_history[0] = self.n_signals
         self.n_parameters[:, 2] = self.n_parameters[:, 1] * reaction
-        self.n_parameters[:, 3] = np.sum(self.s_real, axis=0) + np.sum(self.s_real, axis=1)
-        self.n_parameters[:, 4] = np.sum(self.s_real, axis=1)
-        self.n_parameters[:, 5] = np.sum(self.s_real, axis=0)
-        self.n_parameters[:, 6] = np.sum(self.s_weights, axis=0) + np.sum(self.s_weights, axis=1)
+        norm1 = self.neurons_number * 5 + 1
+        self.n_parameters[:, 3] = (np.sum(self.s_real, axis=0) / norm1) + (np.sum(self.s_real, axis=1) / norm1)
+        self.n_parameters[:, 4] = np.sum(self.s_real, axis=1) / norm1
+        self.n_parameters[:, 5] = np.sum(self.s_real, axis=0) / norm1
+        norm2 = np.max(np.absolute(self.s_weights)) * 5 + 1
+        try:
+            self.n_parameters[:, 6] = (np.sum(self.s_weights, axis=0) / norm2) + (np.sum(self.s_weights, axis=1) / norm2)
+        except:
+            print(self.s_weights)
+            print(norm2)
+            raise
         pos_weights = np.where(self.s_weights > 0.0, self.s_weights, 0.0)
         neg_weights = np.where(self.s_weights < 0.0, self.s_weights, 0.0)
-        self.n_parameters[:, 7] = np.sum(pos_weights, axis=1)
-        self.n_parameters[:, 8] = np.sum(neg_weights, axis=1)
-        self.n_parameters[:, 9] = np.sum(pos_weights, axis=0)
-        self.n_parameters[:, 10] = np.sum(neg_weights, axis=0)
+        self.n_parameters[:, 7] = np.sum(pos_weights, axis=1) / norm2
+        self.n_parameters[:, 8] = np.sum(neg_weights, axis=1) / norm2
+        self.n_parameters[:, 9] = np.sum(pos_weights, axis=0) / norm2
+        self.n_parameters[:, 10] = np.sum(neg_weights, axis=0) / norm2
         self.n_parameters[:, 11] = reaction
 
     def compute_cd(self):
-        cd_input = np.sum(self.s_cd_input[1:] * self.n_parameters[:, 1:], axis=1)
-        cd_output = np.sum(self.s_cd_output[1:] * self.n_parameters[:, 1:], axis=1)
-        self.s_cd = cd_input + cd_output.reshape((self.neurons_number, 1))
-        np.fill_diagonal(self.s_cd, 0.0)
+        try:
+            cd_input = np.sum(self.s_cd_input[1:] * self.n_parameters[:, 1:], axis=1)
+            cd_output = np.sum(self.s_cd_output[1:] * self.n_parameters[:, 1:], axis=1)
+            self.s_cd = cd_input + cd_output.reshape((self.neurons_number, 1))
+            np.fill_diagonal(self.s_cd, 0.0)
+        except:
+            print(self.s_weights)
+            print(self.s_cd_input)
+            print(self.n_parameters)
+            raise
 
     def compute_dw(self):
         dw_input = np.sum(self.s_dw_input[1:] * self.n_parameters[:, 1:], axis=1)
@@ -181,7 +195,11 @@ class Net:
 
     def move_weights(self):
         # получение новых весов s_weights
-        self.s_weights = self.s_weights + self.s_dw * 0.2
+        if np.max(self.s_weights) > 400 or np.min(self.s_weights) < -400:
+            print(self.s_dw)
+            print(self.s_weights)
+            raise
+        self.s_weights = self.s_weights + self.s_dw * 0.01
         # обнуляем веса удаленных синапсов
         self.s_weights = self.s_weights * self.s_real
 
