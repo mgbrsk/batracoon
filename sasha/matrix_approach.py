@@ -57,7 +57,7 @@ def generate_dataset(signal_length: int, inputs_count: int, repeat_blocks_number
 
 
 class Net:
-    def __init__(self, neurons_number=5, input_neurons=None, output_neuron=4, genome=None, parameters_number=11):
+    def __init__(self, neurons_number=5, input_neurons=None, output_neuron=4, genome=None, parameters_number=12):
         self.count_cutoff = 0.0
         self.neurons_number = neurons_number
         self.output_neuron = output_neuron
@@ -96,7 +96,8 @@ class Net:
         # сумма положительных вх весов,
         # сумма отрицательных вх весов,
         # сумма пол вых весов,
-        # сумма отр вых весов
+        # сумма отр вых весов,
+        # чистая реакция
         self.n_parameters = np.zeros((self.neurons_number, self.parameters_number))  # * 2 - 1
         for n in self.input_neurons:
             self.n_parameters[n, 1] = 0.0
@@ -156,6 +157,7 @@ class Net:
         self.n_parameters[:, 8] = np.sum(neg_weights, axis=1)
         self.n_parameters[:, 9] = np.sum(pos_weights, axis=0)
         self.n_parameters[:, 10] = np.sum(neg_weights, axis=0)
+        self.n_parameters[:, 11] = reaction
 
     def compute_cd(self):
         cd_input = np.sum(self.s_cd_input[1:] * self.n_parameters[:, 1:], axis=1)
@@ -263,12 +265,12 @@ class Population:
                 # и создаем рандомные геномы
                 test_genome = {
                     'cd': {
-                        'input': {x: 5 * random.random() - 2.5 for x in range(11)},
-                        'output': {x: 5 * random.random() - 2.5 for x in range(11)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(12)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(12)}
                     },
                     'dw': {
-                        'input': {x: 5 * random.random() - 2.5 for x in range(11)},
-                        'output': {x: 5 * random.random() - 2.5 for x in range(11)}
+                        'input': {x: 5 * random.random() - 2.5 for x in range(12)},
+                        'output': {x: 5 * random.random() - 2.5 for x in range(12)}
                     }
                 }
                 # из них создаем сети
