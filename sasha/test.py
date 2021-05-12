@@ -11,7 +11,7 @@ import numpy as np
 from copy import deepcopy
 
 
-BUFFER_SIZE = 10  # длина сохраняемой истории в нейронах
+BUFFER_SIZE = 15  # длина сохраняемой истории в нейронах
 
 
 class Neuron:
@@ -128,14 +128,15 @@ class Neuron:
             return
         # идем по всем входным нейронам
         for en, n in enumerate(self.input_slots):
-            # pos_coef1 = np.array(n.history) * np.array(self.pos_reference_left)
-            # pos_coef2 = np.array(n.history) == np.array(self.pos_reference_left)
-            # pos_coef2 = pos_coef2 * 1
-            # pos_coef = pos_coef1 * 0.2 + pos_coef2 * 0.8
+            pos_coef1 = np.array(n.history) * np.array(self.pos_reference_left)
+            pos_coef2 = np.array(n.history) == np.array(self.pos_reference_left)
+            pos_coef2 = pos_coef2 * 1
+            pos_coef = pos_coef1 * 0.8 + pos_coef2 * 0.2
+            # pos_coef = np.array(n.history) * np.array(self.pos_reference_left)
 
             # считаем насколько похожи истории необходимых положительных импульсов
             # и история активации данного входного нейрона
-            pos_coef = np.array(n.history) == np.array(self.pos_reference_left)
+            # pos_coef = np.array(n.history) == np.array(self.pos_reference_left)
             # нормируем от 0 до 1 - это степень похожести
             pos_coef = np.sum(pos_coef * 1) / pos_coef.shape[0]
             # если у нас в истории необходимых положительных импульсов ничего нет -
@@ -144,13 +145,14 @@ class Neuron:
                 # (not np.array(n.history).any()):  #  and (not np.array(self.pos_reference_left).any())
                 pos_coef = 0
 
-            # neg_coef1 = np.array(n.history) * np.array(self.neg_reference_left)
-            # neg_coef2 = np.array(n.history) == np.array(self.neg_reference_left)
-            # neg_coef2 = neg_coef2 * 1
-            # neg_coef = neg_coef1 * 0.8 + neg_coef2 * 0.2
+            neg_coef1 = np.array(n.history) * np.array(self.neg_reference_left)
+            neg_coef2 = np.array(n.history) == np.array(self.neg_reference_left)
+            neg_coef2 = neg_coef2 * 1
+            neg_coef = neg_coef1 * 0.8 + neg_coef2 * 0.2
+            # neg_coef = np.array(n.history) * np.array(self.neg_reference_left)
 
             # то же самое и для истории отрицательных необходимых импульсов
-            neg_coef = np.array(n.history) == np.array(self.neg_reference_left)
+            # neg_coef = np.array(n.history) == np.array(self.neg_reference_left)
             neg_coef = np.sum(neg_coef * 1) / neg_coef.shape[0]
             if (not np.array(self.neg_reference_left).any()):
                 # (not np.array(n.history).any()):  #  and (not np.array(self.neg_reference_left).any())
@@ -161,12 +163,12 @@ class Neuron:
             # если положительная похожесть больше чем отрицательная то двигаем вес в сторону его увеличения,
             # если отрицательная больше - то двигаем вес в сторону его уменьшения
             if pos_coef > neg_coef:
-                self.weights[en] += pos_coef * 0.2
+                self.weights[en] += pos_coef * 0.3
             else:
                 # if self.is_output:
                 #     pass
                 # else:
-                self.weights[en] -= neg_coef * 0.2
+                self.weights[en] -= neg_coef * 0.1
             # жестко ограничиваем веса от -1 до 1
             if self.weights[en] > 1:
                 self.weights[en] = 1
@@ -233,14 +235,16 @@ y_true = [0 for _ in range(BUFFER_SIZE)]
 weights_history = []
 
 counter = 0
-for _ in range(1):
+for _ in range(2):
     res = []
-    weights_history = []
+    # weights_history = []
     for cur_x, cur_y in zip(x, y):
         counter += 1
-        cur_weights = [x.weights for x in net]  #  + [list(n2.neg_reference_left)]
+        cur_weights = [[round(y, 3) for y in x.weights] for x in net]  #  + [list(n2.neg_reference_left)]
         # print(cur_weights)
         weights_history.append(deepcopy(cur_weights))
+        weights_history[-1].append(cur_x)
+        weights_history[-1].append([cur_y])
         # обновляем фифо с правильными ответами
         y_true.append(cur_y)
         y_true.pop(0)
@@ -252,8 +256,10 @@ for _ in range(1):
         for n in net:
             out = n.check_signal()
             if n.is_output and out:
+                weights_history[-1].append([1])
                 res.append(1)
             elif n.is_output and not out:
+                weights_history[-1].append([0])
                 res.append(0)
         # передача сигнала вперед
         for n in net:
@@ -275,9 +281,12 @@ print(res)
 for n in net:
     print(n.weights)
 # print(weights_history)
-for i in weights_history:
-    res = []
-    for j in i:
-        for k in j:
-            res.append(str(k))
-    print(','.join(res))
+with open('net_log1.csv', 'w') as f:
+    for i in weights_history:
+        res = []
+        for j in i:
+            for k in j:
+                res.append(str(k))
+        print(','.join(res), file=f)
+        # f.writelines([','.join(res)])
+        print(','.join(res))
