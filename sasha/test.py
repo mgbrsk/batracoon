@@ -154,9 +154,12 @@ class Neuron:
             return
         # идем по всем входным нейронам
         for en, n in enumerate(self.input_slots):
-            pos_coef1 = np.array(n.history) * np.array(self.pos_reference_left)
-            pos_coef2 = np.array(n.history) == np.array(self.pos_reference_left)
+            pos_coef1 = np.array(n.history) * np.array(self.w_pos)
+            pos_coef2 = np.array(n.history) == np.array(self.w_pos)
             pos_coef2 = pos_coef2 * 1
+            # if np.sum(self.w_pos) <= 4:
+            #     continue
+
             pos_coef = pos_coef1 * 0.2 + pos_coef2 * 0.8
             # pos_coef = np.array(n.history) * np.array(self.pos_reference_left)
 
@@ -165,15 +168,18 @@ class Neuron:
             # pos_coef = np.array(n.history) == np.array(self.w_pos)
             # нормируем от 0 до 1 - это степень похожести
             pos_coef = np.sum(pos_coef * 1) / pos_coef.shape[0]
+            # pos_coef *= 1.2
             # если у нас в истории необходимых положительных импульсов ничего нет -
             # то считаем степень похожести как 0 (чтобы не двигать вес)
             # if (not np.array(self.pos_reference_left).any()):
             #     # (not np.array(n.history).any()):  #  and (not np.array(self.pos_reference_left).any())
             #     pos_coef = 0
 
-            neg_coef1 = np.array(n.history) * np.array(self.neg_reference_left)
-            neg_coef2 = np.array(n.history) == np.array(self.neg_reference_left)
+            neg_coef1 = np.array(n.history) * np.array(self.w_neg)
+            neg_coef2 = np.array(n.history) == np.array(self.w_neg)
             neg_coef2 = neg_coef2 * 1
+            # if np.sum(self.w_neg) <= 4:
+            #     continue
             neg_coef = neg_coef1 * 0.2 + neg_coef2 * 0.8
             # neg_coef = np.array(n.history) * np.array(self.neg_reference_left)
 
@@ -184,26 +190,28 @@ class Neuron:
             #     # (not np.array(n.history).any()):  #  and (not np.array(self.neg_reference_left).any())
             #     neg_coef = 0
 
+            # pos_coef = round(pos_coef, 5)
+            # neg_coef = round(neg_coef, 5)
             # if self.is_output:
-            #     print(pos_coef, neg_coef)
+            #     print(pos_coef, neg_coef, pos_coef == neg_coef, self.weights)
 
             # если отрицательная и положительная похожесть одинакова то ничего не делаем
-            # if pos_coef == neg_coef:
-            #     continue
+            if pos_coef == neg_coef:
+                continue
             # если положительная похожесть больше чем отрицательная то двигаем вес в сторону его увеличения,
             # если отрицательная больше - то двигаем вес в сторону его уменьшения
-            if pos_coef >= neg_coef:
+            if pos_coef > neg_coef:
                 self.weights[en] += pos_coef * 0.15
-            else:
+            if pos_coef < neg_coef:
                 # if self.is_output:
                 #     pass
                 # else:
                 self.weights[en] -= neg_coef * 0.15
             # жестко ограничиваем веса от -1 до 1
-            if self.weights[en] > 1:
-                self.weights[en] = 1
-            if self.weights[en] < -1:
-                self.weights[en] = -1
+            # if self.weights[en] > 1:
+            #     self.weights[en] = 1
+            # if self.weights[en] < -1:
+            #     self.weights[en] = -1
 
 
 def make_connection(n1, n2):
@@ -212,9 +220,9 @@ def make_connection(n1, n2):
 # создаем нейроны, говорим кто они
 n0 = Neuron(0, is_input=True)
 n1 = Neuron(1, is_input=True)
-n2 = Neuron(2, weights=[0, 0])
-n3 = Neuron(3, weights=[0, 0])
-n4 = Neuron(4, is_output=True, weights=[0, 0])
+n2 = Neuron(2, weights=[1, -1])
+n3 = Neuron(3, weights=[-1, 1])
+n4 = Neuron(4, is_output=True, weights=[-1, 1])
 # и с кем у них есть входные и выходные связи
 n0.output_slots = [n2, n3]
 n1.output_slots = [n2, n3]
@@ -249,18 +257,18 @@ net = [n0, n1, n2, n3, n4]
 # net = [n0, n1, n2, n3, n4, n5]
 
 # обучающий датасет
-x = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
-     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
-     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
-     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
-     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
-     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
-     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
-     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1]]
-y = [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-     0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-     0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0,
-     0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0]
+x = [[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],
+     [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1], [0, 1],
+     [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1], [1, 1],]
+y = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
 res = []
 
 # массив для сохранения правильной истории, фифо для у
@@ -310,16 +318,16 @@ for _ in range(1):
         for n in net:
             n.move_weights()
 
-print(y)
-print(res)
+for i, j in zip(y, res):
+    print(i, j)
 for n in net:
     print(n.weights)
-# # print(weights_history)
-with open('net_log1.csv', 'w') as f:
-    for i in weights_history:
-        res = []
-        for j in i:
-            for k in j:
-                res.append(str(k))
-        # print(','.join(res), file=f)
-        print(','.join(res))
+# # # print(weights_history)
+# with open('net_log1.csv', 'w') as f:
+#     for i in weights_history:
+#         res = []
+#         for j in i:
+#             for k in j:
+#                 res.append(str(k))
+#         # print(','.join(res), file=f)
+#         print(','.join(res))
