@@ -40,14 +40,15 @@ class Neuron:
         else:
             self.weights = weights
         self.references_from_right = []  # эталоны историй активаций справа, какии истории активаций им нужны
-        # в какие моменты времени нужны были импульсы с положительным весом
-        self.pos_reference_left = [0 for _ in range(BUFFER_SIZE)]
-        # в какие моменты времени нужны были импульсы с отрицательным весом
-        self.neg_reference_left = [0 for _ in range(BUFFER_SIZE)]
+        # # в какие моменты времени нужны были импульсы с положительным весом
+        # self.pos_reference_left = [0 for _ in range(BUFFER_SIZE)]
+        # # в какие моменты времени нужны были импульсы с отрицательным весом
+        # self.neg_reference_left = [0 for _ in range(BUFFER_SIZE)]
         # консолидированная эталонная история для данного нейрона (получается из медианы references_from_right)
-        self.wanting = [0 for _ in range(BUFFER_SIZE)]
-        self.w_pos = [0 for _ in range(BUFFER_SIZE)]
-        self.w_neg = [0 for _ in range(BUFFER_SIZE)]
+        self.wanting = [0 for _ in range(BUFFER_SIZE)]  # для предыдущего слоя
+        self.w_m_w = [0 for _ in range(BUFFER_SIZE)]  # для двиганья весов
+        # self.w_pos = [0 for _ in range(BUFFER_SIZE)]
+        # self.w_neg = [0 for _ in range(BUFFER_SIZE)]
 
     # проверка, превысило ли число в аккумуляторе порог
     def check_signal(self):
@@ -72,11 +73,15 @@ class Neuron:
             self.accumulator += n.temp_signal * w
 
     # получение желаемой истории из выходных нейронов, какую историю активаций им хочется
-    def get_right_reference(self):
-        pass
+    def get_right_reference(self, y_true=None):
+        if self.is_output:
+            self.references_from_right.append(y_true)
+            return
+        for n in self.input_slots:
+            self.references_from_right.append(n.wanting)
 
     # подсчет консолидированной эталонной истории, чтобы угодить как можно большим выходным нейронам
-    def calculate_wanting(self, y_true=None):
+    def calculate_wanting(self):
         pass
 
     # метод изменения входных весов нейрона
@@ -199,9 +204,9 @@ def main():
                 n.move_forward()
             # обратное распространение ошибки
             for n in net:
-                n.get_right_reference()
+                n.get_right_reference(y_true=y_true)
             for n in net:
-                n.calculate_wanting(y_true=y_true)
+                n.calculate_wanting()
             for n in net:
                 n.move_weights()
 
