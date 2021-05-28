@@ -13,7 +13,37 @@ from itertools import combinations
 import random
 
 
-BUFFER_SIZE = 30  # длина сохраняемой истории в нейронах
+BUFFER_SIZE = 15  # длина сохраняемой истории в нейронах
+
+
+def check_solution(input_history1, input_history2, reference):
+    a = np.array([input_history1])
+    b = np.array([input_history2])
+    c = np.concatenate((a, b))
+    X = c.T  # reshape((len(input_history1), 2))
+    y = np.array(reference)
+
+    def func(X, y, weights=None):
+        y_app = (X * weights).sum(axis=1)
+        y_app = np.where(y_app >= 1, 1, y_app)
+        y_app = np.where(y_app < 1, 0, y_app)
+        y_app = y_app.astype(int)
+        delta = (y_app != y).astype(int).sum()
+        return delta
+
+    result = None
+    for i in range(-10, 11):
+        for j in range(-10, 11):
+            # print([i / 10, j / 10], func(X, y, [i / 10, j / 10]))
+            if func(X, y, [i / 10, j / 10]) == 0:
+                result = [i / 10, j / 10]
+                break
+        if result:
+            break
+    if result:
+        return True, result
+    else:
+        return False, [0, 0]
 
 
 class Neuron:
@@ -82,12 +112,37 @@ class Neuron:
 
     # подсчет консолидированной эталонной истории, чтобы угодить как можно большим выходным нейронам
     def calculate_wanting(self):
-        pass
+        if self.is_output:
+            # проверка, могут ли входные нейроны сделать self.references_from_right
+            is_exist, weights = check_solution(self.input_slots[0].history[1:],
+                                               self.input_slots[1].history[1:],
+                                               list(np.roll(np.array(self.references_from_right[0]), shift=1))[1:])
+            if is_exist:
+                self.wanting = [0 for _ in range(BUFFER_SIZE)]
+            else:
+                # TODO: pass
+                # self.wanting = np.roll(np.array(self.history), shift=-2)[:-2] - np.array(self.references_from_right)[:-2]
+                pass
 
     # метод изменения входных весов нейрона
     def move_weights(self):
-        # если входной ничего не делаем, нет входных весов
-        pass
+        if self.is_output:
+            for w, n in enumerate(self.input_slots):
+                diff = np.roll(np.array(self.references_from_right[0]), shift=2)[2:] - np.array(self.history)[2:]
+                if np.sum(diff) == 0:
+                    continue
+                diff_pos = np.where(diff > 0, 1, 0)
+                diff_neg = np.where(diff < 0, 1, 0)
+                temp_pos = np.sum(diff_pos[1:] * np.roll(np.array(n.history), shift=1)[3:])
+                temp_neg = np.sum(diff_neg[1:] * np.roll(np.array(n.history), shift=1)[3:])
+                if temp_pos > temp_neg:
+                    self.weights[w] += temp_pos * 0.2
+                elif temp_pos < temp_neg:
+                    self.weights[w] -= temp_neg * 0.2
+                if self.weights[w] >= 1:
+                    self.weights[w] = 1
+                if self.weights[w] <= -1:
+                    self.weights[w] = -1
 
 
 """
@@ -107,7 +162,12 @@ s_weights = np.array([[0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0],
                       [1, -1, 0, 0, 0],
                       [-1, 1, 0, 0, 0],
-                      [0, 0, 0, 1, 0]])
+                      [0, 0, 1, 1, 0]])
+# s_weights = np.array([[0, 0, 0, 0, 0],
+#                       [0, 0, 0, 0, 0],
+#                       [0.5, 0.5, 0, 0, 0],
+#                       [1, 1, 0, 0, 0],
+#                       [0, 0, -1, 1, 0]])
 
 
 def main():
@@ -182,9 +242,9 @@ def main():
             y_true.pop(0)
 
             # обновляем коннектом
-            update_connectom(net, s_connects, s_weights)
+            # update_connectom(net, s_connects, s_weights)
             # обновляем слоты нейронов
-            make_connections(net, s_connects, s_weights)
+            # make_connections(net, s_connects, s_weights)
 
             # ввод сигналов в сеть
             for en, i in enumerate(cur_x):
@@ -214,15 +274,22 @@ def main():
     #     print(i, j)
     for n in net:
         print(n.weights)
-    # # print(weights_history)
+    ##print(weights_history)
     with open('net_log1.csv', 'w') as f:
         for i in weights_history:
             res = []
             for j in i:
                 for k in j:
                     res.append(str(k))
-            print(','.join(res), file=f)
+            # print(','.join(res), file=f)
             # print(','.join(res))
 
 
 main()
+
+
+# t = check_solution([0, 1, 0, 1, 0, 0, 1], [0, 0, 1, 1, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0])
+# print(t)
+
+# a = np.array([0, 1, 2, 3])
+# print(np.roll(a, shift=-1))
