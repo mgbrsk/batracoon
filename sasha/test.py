@@ -13,7 +13,37 @@ from itertools import combinations
 import random
 
 
-BUFFER_SIZE = 30  # длина сохраняемой истории в нейронах
+BUFFER_SIZE = 15  # длина сохраняемой истории в нейронах
+
+
+def check_solution(input_history1, input_history2, reference):
+    a = np.array([input_history1])
+    b = np.array([input_history2])
+    c = np.concatenate((a, b))
+    X = c.T  # reshape((len(input_history1), 2))
+    y = np.array(reference)
+
+    def func(X, y, weights=None):
+        y_app = (X * weights).sum(axis=1)
+        y_app = np.where(y_app >= 1, 1, y_app)
+        y_app = np.where(y_app < 1, 0, y_app)
+        y_app = y_app.astype(int)
+        delta = (y_app != y).astype(int).sum()
+        return delta
+
+    result = None
+    for i in range(-10, 11):
+        for j in range(-10, 11):
+            # print([i / 10, j / 10], func(X, y, [i / 10, j / 10]))
+            if func(X, y, [i / 10, j / 10]) == 0:
+                result = [i / 10, j / 10]
+                break
+        if result:
+            break
+    if result:
+        return True, result
+    else:
+        return False, [0, 0]
 
 
 class Neuron:
@@ -40,14 +70,15 @@ class Neuron:
         else:
             self.weights = weights
         self.references_from_right = []  # эталоны историй активаций справа, какии истории активаций им нужны
-        # в какие моменты времени нужны были импульсы с положительным весом
-        self.pos_reference_left = [0 for _ in range(BUFFER_SIZE)]
-        # в какие моменты времени нужны были импульсы с отрицательным весом
-        self.neg_reference_left = [0 for _ in range(BUFFER_SIZE)]
+        # # в какие моменты времени нужны были импульсы с положительным весом
+        # self.pos_reference_left = [0 for _ in range(BUFFER_SIZE)]
+        # # в какие моменты времени нужны были импульсы с отрицательным весом
+        # self.neg_reference_left = [0 for _ in range(BUFFER_SIZE)]
         # консолидированная эталонная история для данного нейрона (получается из медианы references_from_right)
-        self.wanting = [0 for _ in range(BUFFER_SIZE)]
-        self.w_pos = [0 for _ in range(BUFFER_SIZE)]
-        self.w_neg = [0 for _ in range(BUFFER_SIZE)]
+        self.wanting = [0 for _ in range(BUFFER_SIZE)]  # для предыдущего слоя
+        self.w_m_w = [0 for _ in range(BUFFER_SIZE)]  # для двиганья весов
+        # self.w_pos = [0 for _ in range(BUFFER_SIZE)]
+        # self.w_neg = [0 for _ in range(BUFFER_SIZE)]
 
     # проверка, превысило ли число в аккумуляторе порог
     def check_signal(self):
@@ -72,125 +103,46 @@ class Neuron:
             self.accumulator += n.temp_signal * w
 
     # получение желаемой истории из выходных нейронов, какую историю активаций им хочется
-    def get_right_reference(self):
-        # если входной (нет входных весов - не обучается) или выходной (нет выходных нейронов) - ничего не делаем
-        if self.is_input or self.is_output:
+    def get_right_reference(self, y_true=None):
+        if self.is_output:
+            self.references_from_right.append(y_true)
             return
-        # берем эталонную историю выходных нейронов и записываем ее к себе
-        for n in self.output_slots:
-            self.references_from_right.append([n.w_pos, n.w_neg])
+        for n in self.input_slots:
+            self.references_from_right.append(n.wanting)
 
     # подсчет консолидированной эталонной истории, чтобы угодить как можно большим выходным нейронам
-    def calculate_wanting(self, y_true=None):
-        """
-        :param y_true: история правильных ответов - для выходного нейрона, если не выходной то не учитывается
-        :return:
-        """
-        # если входной то ничего не делаем
-        if self.is_input:
-            self.references_from_right = []
-            return
-        # если выходной то эталонная история для него - история правильных ответов датасета
+    def calculate_wanting(self):
         if self.is_output:
-            '''
-            a = np.array([0, 0, 1, 2, 3, 4, 5])
-            b = np.array([1, 2, 3, 4, 5, 0, 0])
-            a = np.roll(a, -2)
-            print(a[:-2])
-            print(b[:-2])
-            '''
-            temp_history = np.array(self.history)
-            temp_history = np.roll(temp_history, -2)
-            # temp_history = temp_history[:-2]
-            # temp_true = np.array(y_true)[:-2]
-            temp_true = np.array(y_true)
-            # temp = np.array(y_true) - np.array(self.history)
-            temp = temp_true - temp_history
-            self.w_pos = np.where(temp > 0, 1, 0)
-            self.w_neg = np.where(temp < 0, 1, 0)
-            self.references_from_right = []
-            return
-
-        if len(self.references_from_right) == 1:  # нейроны среднего слоя
-            self.w_pos = self.references_from_right[0][0]
-            self.w_neg = self.references_from_right[0][1]
-            self.w_pos = list(np.roll(np.array(self.w_pos), 1))
-            self.w_neg = list(np.roll(np.array(self.w_neg), 1))
-            self.references_from_right = []
-            return
-        raise
-        # positive = [[en] + x[0] for en, x in enumerate(self.references_from_right)]  # позитивные требования
-        # negative = [[en] + x[1] for en, x in enumerate(self.references_from_right)]
-        #
-        # # !!! возможно стоит еще сравнить с текущей историей
-        # temp = list(combinations(positive + negative, r=2))  # все комбинации
-        # temp = [[x[0][1:], x[1][1:]] for x in temp if x[0][0] != x[1][0]]  # очистка комбинаций от показателей знака
-        # temp = np.array(temp)   # очищенные комбинации историй
-        # func = lambda x: x[0] * x[1]
-        # t = np.apply_along_axis(func, 1, temp)  # произведения комбинаций историй
-        #
-        # temp_sum = np.sum(t, axis=1)  # рейтинг похожестей
-        # indexes_of_max = np.where(temp_sum == temp_sum.max())
-        # random_index = random.choice(indexes_of_max)
-        # reference = list(t[random_index])
-        # temp_dif = np.array(reference) - np.array(self.history)
-        # self.w_pos = np.where(temp_dif > 0, 1, 0)
-        # self.w_neg = np.where(temp_dif < 0, 1, 0)
-        # self.references_from_right = []
+            # проверка, могут ли входные нейроны сделать self.references_from_right
+            is_exist, weights = check_solution(self.input_slots[0].history[1:],
+                                               self.input_slots[1].history[1:],
+                                               list(np.roll(np.array(self.references_from_right[0]), shift=1))[1:])
+            if is_exist:
+                self.wanting = [0 for _ in range(BUFFER_SIZE)]
+            else:
+                # TODO: pass
+                # self.wanting = np.roll(np.array(self.history), shift=-2)[:-2] - np.array(self.references_from_right)[:-2]
+                pass
 
     # метод изменения входных весов нейрона
     def move_weights(self):
-        # если входной ничего не делаем, нет входных весов
-        if self.is_input:
-            return
-        # идем по всем входным нейронам
-        for en, n in enumerate(self.input_slots):
-            print(self.number, n.number)
-            print(np.array(n.history))
-            print(np.array(self.w_pos))
-            pos_coef1 = np.array(n.history) * np.array(self.w_pos)
-            pos_coef2 = np.array(n.history) == np.array(self.w_pos)
-            pos_coef2 = pos_coef2 * 1
-            # if np.sum(self.w_pos) <= 4:
-            #     continue
-
-            pos_coef = pos_coef1 * 0.2 + pos_coef2 * 0.8
-
-            # нормируем от 0 до 1 - это степень похожести
-            pos_coef = np.sum(pos_coef * 1) / pos_coef.shape[0]
-            # если у нас в истории необходимых положительных импульсов ничего нет -
-            # то считаем степень похожести как 0 (чтобы не двигать вес)
-            # if (not np.array(self.pos_reference_left).any()):
-            #     # (not np.array(n.history).any()):  #  and (not np.array(self.pos_reference_left).any())
-            #     pos_coef = 0
-
-            neg_coef1 = np.array(n.history) * np.array(self.w_neg)
-            neg_coef2 = np.array(n.history) == np.array(self.w_neg)
-            neg_coef2 = neg_coef2 * 1
-            # if np.sum(self.w_neg) <= 4:
-            #     continue
-            neg_coef = neg_coef1 * 0.2 + neg_coef2 * 0.8
-
-            # то же самое и для истории отрицательных необходимых импульсов
-            neg_coef = np.sum(neg_coef * 1) / neg_coef.shape[0]
-            # if (not np.array(self.neg_reference_left).any()):
-            #     # (not np.array(n.history).any()):  #  and (not np.array(self.neg_reference_left).any())
-            #     neg_coef = 0
-
-            # если отрицательная и положительная похожесть одинакова то ничего не делаем
-            if pos_coef == neg_coef:
-                continue
-            # если положительная похожесть больше чем отрицательная то двигаем вес в сторону его увеличения,
-            # если отрицательная больше - то двигаем вес в сторону его уменьшения
-            if pos_coef > neg_coef:
-                self.weights[en] += pos_coef * 0.5
-            if pos_coef < neg_coef:
-                self.weights[en] -= neg_coef * 0.5
-            # жестко ограничиваем веса от -1 до 1
-            if self.weights[en] > 1:
-                self.weights[en] = 1
-            if self.weights[en] < -1:
-                self.weights[en] = -1
+        if self.is_output:
+            for w, n in enumerate(self.input_slots):
+                diff = np.roll(np.array(self.references_from_right[0]), shift=2)[2:] - np.array(self.history)[2:]
+                if np.sum(diff) == 0:
+                    continue
+                diff_pos = np.where(diff > 0, 1, 0)
+                diff_neg = np.where(diff < 0, 1, 0)
+                temp_pos = np.sum(diff_pos[1:] * np.roll(np.array(n.history), shift=1)[3:])
+                temp_neg = np.sum(diff_neg[1:] * np.roll(np.array(n.history), shift=1)[3:])
+                if temp_pos > temp_neg:
+                    self.weights[w] += temp_pos * 0.2
+                elif temp_pos < temp_neg:
+                    self.weights[w] -= temp_neg * 0.2
+                if self.weights[w] >= 1:
+                    self.weights[w] = 1
+                if self.weights[w] <= -1:
+                    self.weights[w] = -1
 
 
 """
@@ -210,7 +162,12 @@ s_weights = np.array([[0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0],
                       [1, -1, 0, 0, 0],
                       [-1, 1, 0, 0, 0],
-                      [0, 0, 0, 1, 0]])
+                      [0, 0, 1, 1, 0]])
+# s_weights = np.array([[0, 0, 0, 0, 0],
+#                       [0, 0, 0, 0, 0],
+#                       [0.5, 0.5, 0, 0, 0],
+#                       [1, 1, 0, 0, 0],
+#                       [0, 0, -1, 1, 0]])
 
 
 def main():
@@ -285,9 +242,9 @@ def main():
             y_true.pop(0)
 
             # обновляем коннектом
-            update_connectom(net, s_connects, s_weights)
+            # update_connectom(net, s_connects, s_weights)
             # обновляем слоты нейронов
-            make_connections(net, s_connects, s_weights)
+            # make_connections(net, s_connects, s_weights)
 
             # ввод сигналов в сеть
             for en, i in enumerate(cur_x):
@@ -307,9 +264,9 @@ def main():
                 n.move_forward()
             # обратное распространение ошибки
             for n in net:
-                n.get_right_reference()
+                n.get_right_reference(y_true=y_true)
             for n in net:
-                n.calculate_wanting(y_true=y_true)
+                n.calculate_wanting()
             for n in net:
                 n.move_weights()
 
@@ -317,14 +274,22 @@ def main():
     #     print(i, j)
     for n in net:
         print(n.weights)
-    # # print(weights_history)
+    ##print(weights_history)
     with open('net_log1.csv', 'w') as f:
         for i in weights_history:
             res = []
             for j in i:
                 for k in j:
                     res.append(str(k))
-            print(','.join(res), file=f)
+            # print(','.join(res), file=f)
             # print(','.join(res))
 
+
 main()
+
+
+# t = check_solution([0, 1, 0, 1, 0, 0, 1], [0, 0, 1, 1, 0, 0, 0], [0, 0, 1, 0, 0, 0, 0])
+# print(t)
+
+# a = np.array([0, 1, 2, 3])
+# print(np.roll(a, shift=-1))
