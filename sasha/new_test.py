@@ -32,6 +32,15 @@ def filter_weights(weights):
     return np.array(new_weights)
 
 
+def filter_tuple_weights(weight):
+    temp = np.array(weight)
+    temp = np.where(temp <= 0, True, False)
+    if temp.all():
+        return False
+    else:
+        return True
+
+
 # все возможные комбинации весов друг с другом
 def all_possible_combinations(*args, weights):
     """
@@ -80,5 +89,67 @@ def go_deeper_forward(*args):
 # print(p)
 # print('*****')
 
+import random
+from itertools import product
+from pprint import pprint
 
-print(c)
+
+net = {'0': {'number': 0, 'input_numbers': [], 'input_weights': [], 'history': a},
+       '1': {'number': 1, 'input_numbers': [], 'input_weights': [], 'history': b}}
+
+while True:
+
+    prev_accuracy = 0.25
+
+    random_count = random.randint(2, len(net))
+    mwc = make_weights_combinations(random_count)
+    # print(random_count)
+    # print(mwc)
+
+    temp = None
+    while True:
+        perm_generator = product(mwc, repeat=random_count)
+        max_number = len(mwc) ** random_count
+        rand_number = random.randint(0, max_number - 1)
+        weight_combination = None
+        rand_neurons = None
+        for en, i in enumerate(perm_generator):
+            if en == rand_number and filter_tuple_weights(i):
+                weight_combination = i
+                break
+        if not weight_combination:
+            continue
+        rand_neurons = random.sample(net.keys(), random_count)
+
+        weight_combination = np.array(weight_combination)
+        weight_combination = weight_combination.reshape((len(weight_combination), 1))
+
+        np_neurons = np.array([net[x]['history'] for x in rand_neurons])
+        all_np_neurons = np.array([net[x]['history'] for x in list(net.keys())])
+
+        temp = weight_combination * np_neurons
+        temp = temp.sum(axis=0)
+        temp = np.where(temp >= 1, 1, 0)
+        if temp.any() and not (temp == all_np_neurons).all(axis=1).any():
+            break
+        else:
+            continue
+    print(temp)
+    current_accuracy = (temp == np.array(c)).sum() / len(c)
+    print(current_accuracy)
+    if current_accuracy >= prev_accuracy:
+        last_number = int(list(net.keys())[-1])
+        new_node = {'number': last_number + 1, 'input_numbers': rand_neurons,
+                    'input_weights': weight_combination, 'history': temp}
+        net[str(last_number + 1)] = new_node
+
+        prev_accuracy += 0.25
+        if current_accuracy >= 0.95:
+            break
+        continue
+    else:
+        continue
+
+# print(weight_combination)
+# print(rand_neurons)
+pprint(net)
