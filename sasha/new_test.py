@@ -92,14 +92,67 @@ def go_deeper_forward(*args):
 import random
 from itertools import product
 from pprint import pprint
+from random import random as randrand
 
 
-net = {'0': {'number': 0, 'input_numbers': [], 'input_weights': [], 'history': a},
-       '1': {'number': 1, 'input_numbers': [], 'input_weights': [], 'history': b}}
+def truth_table(inputs_count: int):
+    """
+    made by Vasyan
+    Возвращает массивы входов вида [(x1,..., xn)] и выходов [y].
+    Гарантируется, что при нулях на входе будет ноль на выходе;
+    кроме того, число нулей в таблице истинности будет равно числу единиц в ответах.
+    """
+    X, y = [], []
+    zero_count, ones_count = 0, 0
+    for el in range(2 ** inputs_count):
+        # получаем бинарное представление элемента
+        el_binary = bin(el)[2:]
+        # добавляем столько незначащих нулей слева,
+        # чтобы длина была равна числу входных сигналов
+        if len(el_binary) != inputs_count:
+            el_binary = '0' * (inputs_count - len(el_binary)) + el_binary
+        # переводим строки в числа и записываем в tuple
+        el_binary = tuple(map(int, el_binary))
+        # случайным образом назначаем правильный ответ
+        X.append(el_binary)
+        y.append(int(randrand() > 0.5))
+        # принудительно ставим ответ в ноль, если на входах ноль
+        y[-1] = 0 if sum(X[-1]) == 0 else y[-1]
+        # подсчитываем число нулей и единиц
+        zero_count = zero_count + 1 if y[-1] == 0 else zero_count
+        ones_count = ones_count + 1 if y[-1] == 1 else ones_count
+        # если перевалили за порог, меняем последнее значение на противоположное
+        if zero_count > 2 ** (inputs_count - 1):
+            y[-1] = 1
+        elif ones_count > 2 ** (inputs_count - 1):
+            y[-1] = 0
+    return np.array(X), np.array(y)
+
+
+x, y = truth_table(3)
+print('X:')
+print(x)
+print('\n')
+print('y:')
+print(y)
+print('\n')
+
+
+# net = {'0': {'number': 0, 'input_numbers': [], 'input_weights': [], 'history': a},
+#        '1': {'number': 1, 'input_numbers': [], 'input_weights': [], 'history': b}}
+net = {}
+
+for i in range(x.shape[1]):
+    net[str(i)] = {'number': i, 'input_numbers': [], 'input_weights': [], 'history': x[:, i]}
+
+c = y
+
+print(x.shape)
+
+
+prev_accuracy = 0.3
 
 while True:
-
-    prev_accuracy = 0.25
 
     random_count = random.randint(2, len(net))
     mwc = make_weights_combinations(random_count)
@@ -108,14 +161,23 @@ while True:
 
     temp = None
     while True:
-        perm_generator = product(mwc, repeat=random_count)
+        # perm_generator = product(mwc, repeat=random_count)
         max_number = len(mwc) ** random_count
-        rand_number = random.randint(0, max_number - 1)
+        # rand_number = random.randint(0, max_number - 1)
         weight_combination = None
         rand_neurons = None
-        for en, i in enumerate(perm_generator):
-            if en == rand_number and filter_tuple_weights(i):
-                weight_combination = i
+        # for en, i in enumerate(perm_generator):
+        #     if en == rand_number and filter_tuple_weights(i):
+        #         weight_combination = i
+        #         break
+        count = 0
+        while True:
+            temp = [random.choice(mwc) for x in range(random_count)]
+            if filter_tuple_weights(temp):
+                weight_combination = temp
+                break
+            count += 1
+            if count >= max_number:
                 break
         if not weight_combination:
             continue
@@ -134,7 +196,7 @@ while True:
             break
         else:
             continue
-    print(temp)
+    # print(temp)
     current_accuracy = (temp == np.array(c)).sum() / len(c)
     print(current_accuracy)
     if current_accuracy >= prev_accuracy:
@@ -143,13 +205,12 @@ while True:
                     'input_weights': weight_combination, 'history': temp}
         net[str(last_number + 1)] = new_node
 
-        prev_accuracy += 0.25
-        if current_accuracy >= 0.95:
+        prev_accuracy += 0.05
+        if current_accuracy >= 1.0:
             break
         continue
     else:
         continue
 
-# print(weight_combination)
-# print(rand_neurons)
+
 pprint(net)
