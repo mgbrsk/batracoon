@@ -75,7 +75,8 @@ class Neuron:
         # # в какие моменты времени нужны были импульсы с отрицательным весом
         # self.neg_reference_left = [0 for _ in range(BUFFER_SIZE)]
         # консолидированная эталонная история для данного нейрона (получается из медианы references_from_right)
-        self.wanting = [0 for _ in range(BUFFER_SIZE)]  # для предыдущего слоя
+        # self.wanting = [0 for _ in range(BUFFER_SIZE)]  # для предыдущего слоя
+        self.wanting = {}  # для предыдущего слоя
         self.w_m_w = [0 for _ in range(BUFFER_SIZE)]  # для двиганья весов
         # self.w_pos = [0 for _ in range(BUFFER_SIZE)]
         # self.w_neg = [0 for _ in range(BUFFER_SIZE)]
