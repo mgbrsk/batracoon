@@ -204,18 +204,86 @@ for i in x_train:
 
 
 
-def get_last(net):
-    numbers = list(net.keys())
-    numbers = map(lambda x: str(x), numbers)
-    return max(numbers)
+# target_accuracy = 0.25
+# current_accuracy = 0.0
+#
+# while True:  # current_accuracy < 0.95
+#     while True:  # выбираем вставка или соединение
+#         if random.random() > 0.5:
+#             # выбрали соединение
+#             counter_t1 = 0
+#             while True:  # выбираем два рандомных узла
+#                 if counter_t1 > len(list(net.keys())):
+#                     break
+#                 temp_in, temp_out = random.sample(net.keys(), 2)
+#                 if temp_in['is_output'] or temp_out['is_input']:
+#                     counter_t1 += 1
+#                     continue
+#         else:
+#             # выбрали вставку
+#             pass
+#
+#         break
+#
+#     if current_accuracy > 0.95:
+#         break
 
-net = {}
 
-for i in x.shape[1]:
-    temp_node = dict(number=i, input_nodes=[], weights=[], history=[], is_output=False)
-    net[str(i)] = temp_node
+def limit_counter(limit):
+    def outer_wrapper(f):
+        def wrapper(*args, **kwargs):
+            # if f.__name__ + '_counter' not in args[0].__dir__():
+            #     args[0].getattr(f.__name__ + '_counter') = 0
+            # print(f.__name__ in args[0].__dir__())
+            res = f(*args, **kwargs)
+            return res
+        return wrapper
+    return outer_wrapper
 
-last_number = get_last(net)
-net[str(last_number + 1)] = dict(number=last_number + 1, input_nodes=[], weights=[], history=[], is_output=True)
 
-pprint(net)
+class System:
+    def __init__(self):
+        self.state = None
+        self.current_accuracy = 0.0
+
+        def get_last(net):
+            numbers = list(net.keys())
+            numbers = map(lambda x: int(x), numbers)
+            return max(numbers)
+
+        self.net = {}
+
+        for i in range(x.shape[1]):
+            temp_node = dict(number=i, output_nodes=[], input_nodes=[], weights=[],
+                             counter_input=0, history=[], is_output=False, is_input=True)
+            self.net[str(i)] = temp_node
+
+        last_number = get_last(self.net)
+        self.net[str(last_number + 1)] = dict(number=last_number + 1, output_nodes=[], input_nodes=[], weights=[],
+                                              counter_input=0, history=[], is_output=True, is_input=False)
+
+        # pprint(self.net)
+
+    @limit_counter(5)
+    def choice_insertion_type(self):
+        if random.random() > 0.5:
+            self.state = 'conn_get_two_nodes'
+        else:
+            self.state = 'ins_get_random_number'
+
+    def conn_get_two_nodes(self):
+        self.temp_in, self.temp_out = random.sample(self.net.keys(), 2)
+        self.state = 'conn_check_in_out'
+
+    def run(self):
+        while True:
+            if self.state is None:
+                self.state = 'choice_insertion_type'
+            m = getattr(self, self.state)
+            m()
+            print(self.__dir__())
+            break
+
+
+s = System()
+s.run()
