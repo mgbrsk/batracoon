@@ -245,6 +245,7 @@ class System:
     def __init__(self):
         self.state = None
         self.current_accuracy = 0.0
+        self.counters = {}
 
         def get_last(net):
             numbers = list(net.keys())
@@ -264,16 +265,26 @@ class System:
 
         # pprint(self.net)
 
-    @limit_counter(5)
+    # @limit_counter(5)
     def choice_insertion_type(self):
         if random.random() > 0.5:
             self.state = 'conn_get_two_nodes'
         else:
             self.state = 'ins_get_random_number'
 
-    def conn_get_two_nodes(self):
+    def check_exist_cnt(self, name):
+        if name not in list(self.counters.keys()):
+            self.counters[name] = 0
+
+    def get_two_nodes(self):
+        self.check_exist_cnt('conn_get_two_nodes_cnt')
+        if self.counters['conn_get_two_nodes_cnt'] >= len(list(self.net.keys())):
+            self.state = 'choice_insertion_type'
+            self.counters['conn_get_two_nodes_cnt'] = 0
+            return
         self.temp_in, self.temp_out = random.sample(self.net.keys(), 2)
         self.state = 'conn_check_in_out'
+        self.counters['conn_get_two_nodes_cnt'] += 1
 
     def run(self):
         while True:
