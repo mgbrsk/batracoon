@@ -306,15 +306,30 @@ class System:
         self.state = 'conn_weight_work'
 
     def conn_weight_work(self):
+
+        number_with_new_link = len(self.net[str(self.temp_out)]['input_nodes']) + 1
+        mwc = make_weights_combinations(number_with_new_link)
+
         self.check_exist_cnt('conn_weight_work_cnt')
-        if self.counters['conn_weight_work_cnt'] >= len(list(self.net.keys())):
+        if self.counters['conn_weight_work_cnt'] >= len(mwc) * 2:
             self.state = 'conn_get_two_nodes'
             self.counters['conn_weight_work_cnt'] = 0
             return
 
-        pass
+        self.rand_weight = random.choice(mwc)
+        self.state = 'conn_check_pos_weights'
 
         self.counters['conn_weight_work_cnt'] += 1
+
+    def conn_check_pos_weights(self):
+        temp_node = self.net[str(self.temp_out)]
+        if filter_tuple_weights(list(temp_node['weights']) + [self.rand_weight]):
+            self.state = 'conn_forward_distribution'
+        else:
+            self.state = 'conn_weight_work'
+
+    def conn_forward_distribution(self):
+        pass
 
     def run(self):
         while True:
