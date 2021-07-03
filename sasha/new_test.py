@@ -288,6 +288,10 @@ class System:
 
         self.counters['conn_get_two_nodes_cnt'] += 1
 
+    def check_recursion(self):
+        pass
+        return False   
+
     def conn_check_in_out(self):
         if self.temp_in['is_output'] or self.temp_out['is_input']:
             self.state = 'conn_get_two_nodes'
@@ -296,11 +300,21 @@ class System:
                 self.temp_in in self.net[str(self.temp_out)]['input_nodes']:
             self.state = 'conn_get_two_nodes'
             return
-        if self.net is None:  # recurs:
+        if self.check_recursion():
             self.state = 'conn_get_two_nodes'
             return
         self.state = 'conn_weight_work'
 
+    def conn_weight_work(self):
+        self.check_exist_cnt('conn_weight_work_cnt')
+        if self.counters['conn_weight_work_cnt'] >= len(list(self.net.keys())):
+            self.state = 'conn_get_two_nodes'
+            self.counters['conn_weight_work_cnt'] = 0
+            return
+
+        pass
+
+        self.counters['conn_weight_work_cnt'] += 1
 
     def run(self):
         while True:
