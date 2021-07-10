@@ -2,8 +2,10 @@
 import random
 from pprint import pprint
 from random import random as randrand
+import copy
 
 import numpy as np
+import networkx as nx
 
 
 # набор весов для конкретного количества нейронов
@@ -256,12 +258,14 @@ class System:
 
         for i in range(x.shape[1]):
             temp_node = dict(number=i, output_nodes=[], input_nodes=[], weights=[],
-                             counter_input=0, history=[], is_output=False, is_input=True)
+                             counter_input=0, history=[], is_output=False, is_input=True,
+                             is_ready=True)
             self.net[str(i)] = temp_node
 
         last_number = get_last(self.net)
         self.net[str(last_number + 1)] = dict(number=last_number + 1, output_nodes=[], input_nodes=[], weights=[],
-                                              counter_input=0, history=[], is_output=True, is_input=False)
+                                              counter_input=0, history=[], is_output=True, is_input=False,
+                                              is_ready=False)
 
         # pprint(self.net)
 
@@ -289,7 +293,12 @@ class System:
         self.counters['conn_get_two_nodes_cnt'] += 1
 
     def check_recursion(self):
-        pass
+        DG = nx.DiGraph()
+        for key, value in self.temp_net.items():
+            for item in value['output_nodes']:
+                DG.add_edge(int(key), item)
+        if len(list(nx.simple_cycles(DG))) > 0:
+            return True
         return False   
 
     def conn_check_in_out(self):
@@ -300,6 +309,9 @@ class System:
                 self.temp_in in self.net[str(self.temp_out)]['input_nodes']:
             self.state = 'conn_get_two_nodes'
             return
+        self.temp_net = copy.deepcopy(self.net)
+        self.temp_net[str(self.temp_in)]['output_nodes'].append(self.temp_out)
+        self.temp_net[str(self.temp_out)]['input_nodes'].append(self.temp_in)
         if self.check_recursion():
             self.state = 'conn_get_two_nodes'
             return
@@ -324,6 +336,7 @@ class System:
     def conn_check_pos_weights(self):
         temp_node = self.net[str(self.temp_out)]
         if filter_tuple_weights(list(temp_node['weights']) + [self.rand_weight]):
+            self.temp_net[str(self.temp_out)]['weights'].append(self.rand_weight)
             self.state = 'conn_forward_distribution'
         else:
             self.state = 'conn_weight_work'
