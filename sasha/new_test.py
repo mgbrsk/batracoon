@@ -302,7 +302,7 @@ class System:
         return False   
 
     def conn_check_in_out(self):
-        if self.temp_in['is_output'] or self.temp_out['is_input']:
+        if self.net[str(self.temp_in)]['is_output'] or self.net[str(self.temp_out)]['is_input']:
             self.state = 'conn_get_two_nodes'
             return
         if self.temp_out in self.net[str(self.temp_in)]['output_nodes'] or \
@@ -342,7 +342,25 @@ class System:
             self.state = 'conn_weight_work'
 
     def conn_forward_distribution(self):
-        pass
+        for key, value in self.temp_net.items():
+            if value['is_output']:
+                output_node_number = key
+                break
+        current_node_number = output_node_number
+        while not self.temp_net[output_node_number]['is_ready']:
+            if not self.temp_net[current_node_number]['is_ready']:
+                for i in self.temp_net[current_node_number]['input_nodes']:
+                    if not self.temp_net[str(i)]['is_ready']:
+                        current_node_number = i
+                        break
+                else:
+                    pass
+                    # TODO: история обсчет
+                    self.temp_net[current_node_number]['is_ready'] = True
+                    current_node_number = output_node_number
+            else:
+                current_node_number = output_node_number
+        self.state = 'conn_check_history'
 
     def run(self):
         while True:
