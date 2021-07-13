@@ -341,22 +341,25 @@ class System:
         else:
             self.state = 'conn_weight_work'
 
-    def conn_forward_distribution(self):
+    def conn_forward_distribution(self, debug=False):
+        if debug:
+            self.temp_net = copy.deepcopy(self.net)
         for key, value in self.temp_net.items():
             if value['is_output']:
                 output_node_number = key
                 break
         current_node_number = output_node_number
-        while not self.temp_net[output_node_number]['is_ready']:
-            if not self.temp_net[current_node_number]['is_ready']:
-                for i in self.temp_net[current_node_number]['input_nodes']:
+        while not self.temp_net[str(output_node_number)]['is_ready']:
+            if not self.temp_net[str(current_node_number)]['is_ready']:
+                for i in self.temp_net[str(current_node_number)]['input_nodes']:
                     if not self.temp_net[str(i)]['is_ready']:
                         current_node_number = i
                         break
                 else:
                     pass
+                    print(current_node_number)
                     # TODO: история обсчет
-                    self.temp_net[current_node_number]['is_ready'] = True
+                    self.temp_net[str(current_node_number)]['is_ready'] = True
                     current_node_number = output_node_number
             else:
                 current_node_number = output_node_number
@@ -372,5 +375,43 @@ class System:
 
 
 s = System()
-s.run()
-pprint(s.net)
+# s.run()
+
+t_node = dict(number=3, output_nodes=[], input_nodes=[], weights=[],
+              counter_input=0, history=[], is_output=False, is_input=False,
+              is_ready=False)
+t_node4 = dict(number=4, output_nodes=[], input_nodes=[], weights=[],
+               counter_input=0, history=[], is_output=False, is_input=False,
+               is_ready=False)
+t_node5 = dict(number=5, output_nodes=[], input_nodes=[], weights=[],
+               counter_input=0, history=[], is_output=False, is_input=False,
+               is_ready=False)
+t_node6 = dict(number=6, output_nodes=[], input_nodes=[], weights=[],
+               counter_input=0, history=[], is_output=False, is_input=False,
+               is_ready=False)
+
+s.net['3'] = t_node
+s.net['4'] = t_node4
+s.net['5'] = t_node5
+s.net['6'] = t_node6
+
+s.net['0']['output_nodes'] += [3, 4]
+s.net['1']['output_nodes'] += [3, 4]
+
+s.net['3']['output_nodes'] += [5, 6]
+s.net['3']['input_nodes'] += [0, 1]
+
+s.net['4']['output_nodes'] += [5, 6]
+s.net['4']['input_nodes'] += [0, 1]
+
+s.net['5']['output_nodes'] += [2]
+s.net['5']['input_nodes'] += [3, 4]
+
+s.net['6']['output_nodes'] += [2]
+s.net['6']['input_nodes'] += [3, 4]
+
+s.net['2']['input_nodes'] += [5, 6]
+
+s.conn_forward_distribution(debug=True)
+
+pprint(s.temp_net)
