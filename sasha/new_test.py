@@ -356,9 +356,28 @@ class System:
                         current_node_number = i
                         break
                 else:
-                    pass
-                    print(current_node_number)
-                    # TODO: история обсчет
+                    if debug:
+                        print(current_node_number)
+                    # история обсчет
+
+                    # преобразуем комбинацию входных весов в массив нампи
+                    weight_combination = np.array(self.temp_net[str(current_node_number)]['weights'])
+                    # создаем матрицу-вектор (вертикальную)
+                    weight_combination = weight_combination.reshape((len(weight_combination), 1))
+                    
+                    # создаем матрицу входных историй активаций для данного узла
+                    np_neurons = np.array([self.temp_net[str(x)]['history'] for x in self.temp_net[str(current_node_number)]['input_nodes']])
+
+                    # а также переводим все истории в матричный вид нампая
+                    # all_np_neurons = np.array([self.temp_net[str(x)]['history'] for x in list(self.temp_net.keys())])
+                    
+                    # получаем результат для данного узла - умножаем истории на веса, суммируем и применяем пороговую функцию
+                    temp = weight_combination * np_neurons
+                    temp = temp.sum(axis=0)
+                    temp = np.where(temp >= 1, 1, 0)
+
+                    self.temp_net[str(current_node_number)]['history'] = temp
+
                     self.temp_net[str(current_node_number)]['is_ready'] = True
                     current_node_number = output_node_number
             else:
@@ -412,6 +431,22 @@ s.net['6']['input_nodes'] += [3, 4]
 
 s.net['2']['input_nodes'] += [5, 6]
 
+####
+
+s.net['0']['history'] = [0, 1, 0, 1]
+s.net['1']['history'] = [0, 0, 1, 1]
+
+s.net['3']['weights'] = [1, -1]
+s.net['4']['weights'] = [-1, 1]
+
+s.net['5']['weights'] = [1, 1]
+s.net['6']['weights'] = [0, 0]
+
+s.net['2']['weights'] = [1, 0]
+
+####
+
 s.conn_forward_distribution(debug=True)
 
 pprint(s.temp_net)
+print(s.temp_net['2']['history'])
