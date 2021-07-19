@@ -269,6 +269,9 @@ class System:
 
         # pprint(self.net)
 
+    def set_y(self, y):
+        self.y = y
+
     # @limit_counter(5)
     def choice_insertion_type(self):
         if random.random() > 0.5:
@@ -299,7 +302,22 @@ class System:
                 DG.add_edge(int(key), item)
         if len(list(nx.simple_cycles(DG))) > 0:
             return True
-        return False   
+        return False
+
+    def _remove_node(self, number, net):
+        new_net = {}
+        for item, value in net.items():
+            # if str(item) != str(number):
+            temp_val = copy.deepcopy(value)
+            temp_val['input_nodes'] = []
+            temp_val['weights'] = []
+            for i in range(len(temp_val['input_nodes'])):
+                if value['input_nodes'][i] != int(number):
+                    temp_val['input_nodes'].append(value['input_nodes'][i])
+                    temp_val['weights'].append(value['weights'][i])
+            temp_val['output_nodes'] = [x for x in temp_val['output_nodes'] if x != int(number)]
+            new_net[str(item)] = temp_val
+        return new_net
 
     def conn_check_in_out(self):
         if self.net[str(self.temp_in)]['is_output'] or self.net[str(self.temp_out)]['is_input']:
@@ -307,6 +325,7 @@ class System:
             return
         if self.temp_out in self.net[str(self.temp_in)]['output_nodes'] or \
                 self.temp_in in self.net[str(self.temp_out)]['input_nodes']:
+            # TODO: сделать возможность изменения уже существующего веса
             self.state = 'conn_get_two_nodes'
             return
         self.temp_net = copy.deepcopy(self.net)
@@ -340,6 +359,9 @@ class System:
             self.state = 'conn_forward_distribution'
         else:
             self.state = 'conn_weight_work'
+
+    def _forward_distribution(self, number, net):
+        pass
 
     def conn_forward_distribution(self, debug=False):
         if debug:
@@ -383,6 +405,31 @@ class System:
             else:
                 current_node_number = output_node_number
         self.state = 'conn_check_history'
+
+    def conn_check_history(self):
+        all_np_neurons = np.array([self.temp_net[str(x)]['history'] for x in list(self.temp_net.keys())])
+        temp = np.array(self.temp_net[str(self.temp_out)]['history'])
+        if temp.any() and not (temp == all_np_neurons).all(axis=1).any():
+            if random.random() < 0.1:
+                self.state = 'conn_accuracy_censorship'
+            else:
+                self.state = 'conn_weight_work'
+        else:
+            self.state = 'conn_accuracy_censorship'
+
+    def conn_accuracy_censorship(self):
+        temp = np.array(self.temp_net[str(self.temp_out)]['history'])
+        current_accuracy = (temp == np.array(y)).sum() / len(y)
+        if current_accuracy > self.current_accuracy:
+            self.net = self.temp_net
+            self.current_accuracy = current_accuracy
+            self.state = 'choice_insertion_type'
+            self.counters = {key: 0 for key in self.counters.keys()}
+        else:
+            self.state = 'conn_weight_work'
+
+    def ins_get_random_number(self):
+        pass
 
     def run(self):
         while True:
